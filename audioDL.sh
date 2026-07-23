@@ -4,7 +4,7 @@
 # yt-dlp + ffmpeg + fzf
 # Two-pass loudnorm via jq (falls back to one-pass if jq missing)
 #
-set -euo pipefail
+set -Eeuo pipefail
 trap 'echo "FAILED at line $LINENO: $BASH_COMMAND"' ERR
 
 # ============================================================
@@ -97,10 +97,15 @@ run_spinner() {
         shift
 
         if [ "$HAVE_GUM" -eq 1 ]; then
-                gum spin \
-                        --spinner dot \
-                        --title "$title" \
-                        -- "$@"
+                if [ "${SPINNER_SILENT:-0}" -eq 1 ]; then
+                        "$@"
+                else
+                        gum spin \
+                                --spinner minidot \
+                                --title "$title" \
+                                -- \
+                                "$@"
+                fi
         else
                 info "$title"
                 "$@"
@@ -555,7 +560,7 @@ normalize_audio() {
 
         if [ "$HAVE_JQ" -eq 1 ]; then
                 # --- Two-pass loudnorm using jq ---
-                run_spinner "Analyzing loudness..." \
+                SPINNER_SILENT=1 run_spinner "Analyzing loudness..." \
                         "${FFMPEG_ANALYZE[@]}" -i "$TMP_FILE" \
                         -af "loudnorm=I=$TARGET_LUFS:TP=-1.5:LRA=11:print_format=json" \
                         -f null - 2>"$TMP_DIR/loudnorm_raw.txt"
@@ -569,10 +574,12 @@ normalize_audio() {
                 mthr="$(jq -r '.input_thresh' "$json")"
                 off="$(jq -r '.target_offset' "$json")"
 
-                run_spinner "Applying normalization (pass 2)..." \
-                        "${FFMPEG[@]}" -y -i "$TMP_FILE" \
+                info "Applying normalization (pass 2)..."
+
+                SPINNER_SILENT=1 "${FFMPEG[@]}" -y -i "$TMP_FILE" \
                         -af "loudnorm=I=$TARGET_LUFS:TP=-1.5:LRA=11:measured_I=$mi:measured_TP=$mtp:measured_LRA=$mlra:measured_thresh=$mthr:offset=$off:linear=true" \
-                        -c:a aac -q:a 2 \
+                        -c:a aac \
+                        -q:a 2 \
                         ${SOURCE_SAMPLE_RATE:+-ar "$SOURCE_SAMPLE_RATE"} \
                         "$NORMALIZED_FILE"
 
