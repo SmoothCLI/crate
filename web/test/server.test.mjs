@@ -2235,3 +2235,98 @@ test("a cover embedded in the audio file is served when the folder has none", as
     fs.rmSync(path.join(music, "Embedded Artist"), { recursive: true, force: true });
   }
 });
+
+// A phone's player cannot present a browser cookie, so this surface has to work
+// from the owner's credentials in the protocol's own query parameters. It is
+// read-only on purpose: it browses and streams, and never writes.
+test("the Subsonic API browses and streams the library read-only", async () => {
+  const music = path.join(DATA, "music");
+  const albumDir = path.join(music, "Sub Artist", "Sub Album");
+  fs.mkdirSync(albumDir, { recursive: true });
+  const bytes = Buffer.from("subsonic-audio-bytes");
+  fs.writeFileSync(path.join(albumDir, "01 - Sub Song.m4a"), bytes);
+  fs.writeFileSync(path.join(albumDir, "cover.jpg"), "jpeg-cover");
+
+  const get = (name, params = {}) => {
+    const query = new URLSearchParams({
+      u: "owner",
+      p: "testpassword",
+      v: "1.16.1",
+      c: "test",
+      ...params,
+    });
+    return fetch(`${BASE}/rest/${name}?${query}`);
+  };
+  const asJson = async (name, params = {}) => {
+    const answer = await get(name, { f: "json", ...params });
+    assert.equal(answer.status, 200, "the protocol answers 200 even for failures");
+    return (await answer.json())["subsonic-response"];
+  };
+
+  try {
+    // XML is the protocol default, and a bad password is a body-level error.
+    const xml = await (await get("ping")).text();
+    assert.match(xml, /<subsonic-response[^>]*status="ok"/);
+    assert.match(xml, /version="1\.16\.1"/);
+
+    const wrong = await asJson("ping", { p: "not-the-password" });
+    assert.equal(wrong.status, "failed");
+    assert.equal(wrong.error.code, 40);
+
+    // Token auth needs the password itself, which a scrypt hash does not hold.
+    const token = await asJson("ping", { p: "", t: "abc", s: "def" });
+    assert.equal(token.error.code, 41);
+
+    const artists = await asJson("getArtists");
+    const listed = artists.artists.index.flatMap((bucket) => bucket.artist);
+    assert.ok(
+      listed.some((artist) => artist.name === "Sub Artist"),
+      "the artist is listed for a player",
+    );
+
+    const search = await asJson("search3", { query: "Sub Song" });
+    const song = search.searchResult3.song[0];
+    assert.equal(song.title, "Sub Song");
+    assert.equal(song.album, "Sub Album");
+    assert.equal(song.path, "Sub Artist/Sub Album/01 - Sub Song.m4a");
+
+    const album = await asJson("getAlbum", { id: song.albumId });
+    assert.equal(album.album.songCount, 1);
+    assert.equal(album.album.song[0].id, song.id);
+
+    const stream = await get("stream", { id: song.id });
+    assert.equal(stream.headers.get("content-type"), "audio/mp4");
+    assert.deepEqual(Buffer.from(await stream.arrayBuffer()), bytes);
+
+    // Range support is what lets a player seek without fetching the file.
+    const ranged = await fetch(
+      `${BASE}/rest/stream?${new URLSearchParams({
+        u: "owner",
+        p: "testpassword",
+        v: "1.16.1",
+        c: "test",
+        id: song.id,
+      })}`,
+      { headers: { range: "bytes=0-3" } },
+    );
+    assert.equal(ranged.status, 206);
+    assert.equal((await ranged.arrayBuffer()).byteLength, 4);
+
+    const cover = await get("getCoverArt", { id: song.coverArt });
+    assert.equal(await cover.text(), "jpeg-cover");
+
+    // An id pointing outside the library resolves to nothing: the id is decoded
+    // and then looked up in the walk, so a crafted one cannot read /etc.
+    const outside = "s" + Buffer.from("/etc/passwd").toString("base64url");
+    assert.equal((await asJson("getSong", { id: outside })).error.code, 70);
+
+    // A guest session is not the owner, and a URL is not a credential.
+    const guestCookie = cookieOf(await call("/api/guest", { method: "POST" }));
+    const guestAnswer = await fetch(`${BASE}/rest/ping?f=json&v=1.16.1&c=test`, {
+      headers: { cookie: guestCookie },
+    });
+    assert.equal((await guestAnswer.json())["subsonic-response"].error.code, 40);
+  } finally {
+    fs.rmSync(path.join(music, "Sub Artist"), { recursive: true, force: true });
+  }
+});

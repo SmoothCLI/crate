@@ -1,6 +1,7 @@
 import express from "express";
 import { spawn } from "node:child_process";
 import { clip, webhookKind, webhookPayload } from "./notify.mjs";
+import { mountSubsonic } from "./subsonic.mjs";
 import dns from "node:dns";
 import net from "node:net";
 import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
@@ -4763,6 +4764,24 @@ app.post("/share", express.urlencoded({ extended: false, limit: "16kb" }), (req,
 app.get(/^\/https?:\/\/.+/, (req, res) => {
   const raw = req.originalUrl.split("?")[0].replace(/^\//, "");
   res.redirect(302, `/?url=${encodeURIComponent(raw)}`);
+});
+
+// A read-only Subsonic-compatible API for third-party players. Mounted before
+// the app shell, which would otherwise answer /rest/... with index.html.
+mountSubsonic(app, {
+  siteName: () => settings.siteName,
+  musicDir: () => settings.musicDir,
+  username: () => settings.username,
+  passwordHash: () => passwordHash,
+  verifyPassword,
+  items: () => libraryBrowseIndex().items,
+  coverFor: (dir) => coverBeside(dir) ?? embeddedCover(dir),
+  isInside,
+  mime: LIBRARY_MIME,
+  sessionFor,
+  clientIp,
+  blockedFor,
+  recordFailure,
 });
 
 if (fs.existsSync(DIST)) {
