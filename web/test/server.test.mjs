@@ -2158,3 +2158,80 @@ test("library covers come from the album folder and never from outside it", asyn
     fs.rmSync(path.join(music, "Cover Artist"), { recursive: true, force: true });
   }
 });
+
+// The test above covers a picture sitting beside the tracks. The other half of
+// the feature is a library whose art exists only inside the audio file, which is
+// what a hand-copied album usually looks like: no sidecar image, nothing in the
+// cover cache, and ffmpeg as the only way to read the picture out.
+test("a cover embedded in the audio file is served when the folder has none", async (t) => {
+  if (!ffmpeg || !ffprobe) {
+    t.skip("ffmpeg/ffprobe are not installed");
+    return;
+  }
+  const ownerCookie = cookieOf(
+    await call("/api/login", {
+      method: "POST",
+      body: { username: "owner", password: "testpassword" },
+    }),
+  );
+  const music = path.join(DATA, "music");
+  const albumDir = path.join(music, "Embedded Artist", "Embedded Album");
+  fs.mkdirSync(albumDir, { recursive: true });
+  const file = path.join(albumDir, "01 - Only Track.m4a");
+  try {
+    // A real tagged file: a tone with an MJPEG attached as cover art, the same
+    // shape `--embed-thumbnail` leaves behind.
+    execFileSync(
+      "ffmpeg",
+      [
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=330:duration=0.5",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=0x8b5cf6:s=120x120",
+        "-frames:v",
+        "1",
+        "-c:a",
+        "aac",
+        "-c:v",
+        "mjpeg",
+        "-disposition:v",
+        "attached_pic",
+        file,
+      ],
+      { stdio: "ignore" },
+    );
+    // No sidecar image, so the picture inside the file is the only candidate.
+    assert.ok(!fs.existsSync(path.join(albumDir, "cover.jpg")));
+
+    const first = await fetch(
+      `${BASE}/api/library/cover?dir=${encodeURIComponent(albumDir)}`,
+      { headers: { cookie: ownerCookie } },
+    );
+    assert.equal(first.status, 200, "embedded art is a cover");
+    assert.equal(first.headers.get("content-type"), "image/jpeg");
+    const bytes = Buffer.from(await first.arrayBuffer());
+    // JPEG magic: an extraction that failed and returned an error page would
+    // not get past this.
+    assert.deepEqual([...bytes.subarray(0, 2)], [0xff, 0xd8]);
+    assert.ok(bytes.length > 100, "the extracted picture is empty");
+
+    // The second answer comes from the cache the first request wrote, and it
+    // has to be the same picture rather than a fresh encode of the source.
+    const again = await fetch(
+      `${BASE}/api/library/cover?dir=${encodeURIComponent(albumDir)}`,
+      { headers: { cookie: ownerCookie } },
+    );
+    assert.equal(again.status, 200);
+    assert.equal(Buffer.compare(Buffer.from(await again.arrayBuffer()), bytes), 0);
+  } finally {
+    fs.rmSync(path.join(music, "Embedded Artist"), { recursive: true, force: true });
+  }
+});
