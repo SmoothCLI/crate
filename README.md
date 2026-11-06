@@ -225,7 +225,7 @@ Clone the repository:
 
 ```bash
 git clone https://github.com/SmoothCLI/audioDL.git
-cd Crate
+cd audioDL
 ```
 
 Make the script executable:
