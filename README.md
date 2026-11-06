@@ -35,7 +35,15 @@ Just provide a URL and let Crate handle the rest.
 </p>
 
 <p align="center">
-  <em>SoundCloud → review → tagged file, recorded from the web UI at 2× speed.</em>
+  <em>The web UI: paste a link, review the tags, queue it (2× speed).</em>
+</p>
+
+<p align="center">
+  <img src="assets/demo-cli.gif" width="880" alt="A terminal run inspecting, downloading, normalising and tagging the same SoundCloud track">
+</p>
+
+<p align="center">
+  <em>Or from the terminal: the same link inspected, downloaded, normalised and tagged (1.4× speed).</em>
 </p>
 
 ---
