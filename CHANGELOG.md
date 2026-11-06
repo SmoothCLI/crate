@@ -6,6 +6,28 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A read-only [Subsonic-compatible API](docs/subsonic.md), speaking protocol
+  1.16.1 from `/rest`, so Symfonium, DSub, Feishin and friends can browse and
+  stream the same library the web UI shows: `ping`, `getArtists`, `getIndexes`,
+  `getArtist`, `getAlbum`, `getSong`, `getAlbumList2`, `search3`, `stream`,
+  `download`, `getCoverArt`, `getMusicFolders`, `getScanStatus` and the empty
+  answers a read-only server gives for playlists and stars. It signs in with the
+  owner's existing credentials, accepts the session cookie, and refuses token
+  auth with the protocol's code 41 because only a scrypt hash is stored. Nothing
+  in it writes tags, ratings, playlists or scrobbles.
+
+### Changed
+
+- Release notes end with a **Full changelog** compare link. GitHub only adds that
+  footer when it writes the notes itself, and these come from `CHANGELOG.md`.
+
+### Fixed
+
+- The terminal demo's caption no longer claims "1.4× speed": nothing in the
+  repository could produce or verify that, and the file plays at real time.
+
 ## [3.4.1] - 2026-11-06
 
 ### Added
