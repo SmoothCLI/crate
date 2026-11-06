@@ -12,26 +12,40 @@ playlists or scrobbles. Downloads still happen in Crate.
 
 ## Connecting
 
+`/admin → Subsonic API` holds everything a player needs: the switch, the server
+URL, an API key and a Subsonic password. Both credentials are generated on first
+start and can be regenerated there; regenerating one signs out whatever used it.
+
 | Field | Value |
 |---|---|
 | Server | `http://your-host:8099` (or the URL behind your reverse proxy) |
 | Username | the owner username from `/setup`, `admin` unless you changed it |
-| Password | your Crate password |
+| Password | the **Subsonic password** from `/admin` |
 | Path prefix | leave empty — the endpoints are at `/rest` directly |
 
-The API is on by default and needs no toggle: it accepts the owner's existing
-credentials, and nothing else.
+Some players ask for an API key instead: paste it where the password goes, or
+send it as `apiKey=`. A key needs no username and cannot sign in to the web UI.
 
 ## Authentication
 
+- **API key** — `apiKey=<key>`, the simplest option and the one that keeps a
+  password out of the URL.
 - **Username and password** — `u` and `p`, as the protocol defines. `p` may be
-  plain text or the `enc:` hex form some clients use.
+  plain text or the `enc:` hex form some clients use. Either the Subsonic
+  password or the web password is accepted here.
+- **Token auth** — `t` + `s`, which is `md5(password + salt)`. This works with
+  the Subsonic password, because that one is stored (encrypted at rest by being
+  readable to the server only — see below) rather than hashed. The web password
+  is still only a scrypt hash, so token auth cannot be checked against it.
 - **Session cookie** — a browser already signed in to Crate is accepted, which
   is what makes a player opened on this machine work without a second login.
-- **Token auth (`t` + `s`) is refused** with error code **41**. That scheme is
-  `md5(password + salt)`, and Crate stores only a scrypt hash, so it cannot be
-  verified without keeping your password in recoverable form — which it does
-  not do. Pick the password method in your player.
+
+Switching the API off in `/admin` answers error **50** to every request,
+whatever credential it carried.
+
+The Subsonic password is a separate credential on purpose: it is the only one
+that can be checked against an md5 token, and it opens nothing but this
+read-only API.
 
 Because the password can travel in a query string, **put the instance behind
 HTTPS** for anything beyond a trusted LAN. See
@@ -89,10 +103,13 @@ read outside the music folder.
 
 - Albums, artists, track titles, track numbers, sizes, formats and cover art are
   real, taken from the folder layout the downloader writes.
-- **Durations are `0`.** Reading them needs a per-file probe, which is far too
-  slow for a library of thousands of tracks; the web UI does not wait for it
-  either.
-- Genres, years, bitrates and replay-gain values are absent for the same reason.
+- **Durations are measured with `ffprobe` and cached** in `data/durations.json`
+  by path and mtime, so each file is probed once and re-probed only when it
+  changes. The first request that mentions a file pays for the probe; later ones
+  read the cache. At most 60 probes are started per response, so opening a large
+  album fills remaining lengths on the next request rather than blocking.
+- Genres, years, bitrates and replay-gain values are absent: they would need a
+  full tag read per file, which is a different order of cost.
 - Likes, play counts and playlists stay empty: nothing writes them.
 
 Guest access is not extended to this API. A guest session is not the owner, so a

@@ -6,6 +6,21 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `Subsonic API` in `/admin`: an on/off switch, the server URL, a generated
+  **API key** (`apiKey=`) and a separate **Subsonic password**, each regenerable
+  from the page. Switching the API off answers error 50 to every client.
+- Subsonic responses now carry real **track durations**, measured with `ffprobe`
+  and cached in `data/durations.json` by path and mtime, so a player draws a
+  length instead of `0` and files are not probed twice.
+
+### Changed
+
+- Subsonic **token auth** (`t` + `s`) works, against the dedicated Subsonic
+  password. The web password remains a scrypt hash and is still accepted by
+  `u` + `p` only.
+
 ## [3.5.0] - 2026-11-06
 
 ### Added

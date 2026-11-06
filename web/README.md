@@ -97,18 +97,26 @@ than at the setup wizard. To run the halves yourself, use `npm run dev:api` and
 A read-only subset of the Subsonic API (protocol 1.16.1) is served from `/rest`,
 so a phone or desktop player can browse and stream the library without this UI.
 
+`/admin → Subsonic API` has the switch, the server URL and two generated
+credentials: an **API key** (send it as `apiKey=`, needs no username) and a
+**Subsonic password** (use it with your username). Both can be regenerated
+there, which signs out whatever used the old value. The web password works with
+`u`/`p` too.
+
 ```text
 Server    http://your-host:8099
 Username  admin (or the username chosen at /setup)
-Password  your Crate password
+Password  the Subsonic password from /admin
 ```
 
 `ping`, `getMusicFolders`, `getIndexes`, `getArtists`, `getArtist`, `getAlbum`,
 `getSong`, `getAlbumList2`, `search3`, `stream`, `download`, `getCoverArt`,
 `getScanStatus` and `getLicense` are implemented; playlists and stars answer
 empty and scrobbles are accepted and forgotten. Token authentication (`t`/`s`)
-is refused with protocol code 41, because only a scrypt hash of the password is
-kept - use the password method, over HTTPS. Both `/rest/name` and
+works against the Subsonic password, which is the one credential the server
+stores; the web password stays a scrypt hash and is accepted by `u`/`p` only.
+Track durations are measured with `ffprobe` and cached in `data/durations.json`.
+Use HTTPS for anything beyond a trusted LAN. Both `/rest/name` and
 `/rest/name.view` work, XML is the default and `f=json` gives JSON.
 
 [`docs/subsonic.md`](../docs/subsonic.md) has the endpoint table, curl examples
