@@ -4,16 +4,20 @@
 //
 // The published container usually holds 8080 on a machine that already runs
 // Crate, so the dev API gets a port of its own (AUDIODL_PORT, 8081 by default)
-// and Vite proxies /api to it. Edits under web/src hot-reload in the browser;
-// edits under web/server restart the API through `node --watch`. Nothing here
-// builds an image, writes a tag or talks to the registry, so a change can be
-// looked at while it is still uncommitted.
+// and Vite proxies /api to it. Edits under web/src hot-reload in the browser,
+// edits under web/server restart the API through `node --watch`, and edits to
+// dlAudio.sh restart it from here, because the downloader is spawned at runtime
+// rather than imported. Nothing builds an image, writes a tag or talks to the
+// registry, so a change can be looked at while it is still uncommitted.
 
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const WEB = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = path.dirname(WEB);
+const SCRIPT = path.join(ROOT, "dlAudio.sh");
 const API_PORT = Number(process.env.AUDIODL_PORT || 8081);
 const API = `http://127.0.0.1:${API_PORT}`;
 const UI_PORT = process.env.CRATE_UI_PORT || "5173";
@@ -28,7 +32,7 @@ function stop(code) {
   process.exit(code);
 }
 
-function start(name, args, env = {}) {
+function start(name, args, env = {}, onExit = null) {
   const child = spawn(process.execPath, args, {
     cwd: WEB,
     env: { ...process.env, ...env },
@@ -36,6 +40,10 @@ function start(name, args, env = {}) {
   });
   child.on("exit", (code, signal) => {
     if (stopping) return;
+    if (onExit) {
+      onExit(code, signal);
+      return;
+    }
     // Both halves are needed for anything to render, so whichever one dies
     // takes the command down instead of leaving a half-working page behind.
     console.error(`[dev] ${name} exited (${signal ?? code})`);
@@ -68,15 +76,67 @@ async function waitForApi() {
 // for the throwaway folder under web/data: when AUDIODL_DATA is set the flag is
 // left alone, because the server would otherwise rewrite that instance's real
 // password hash.
-const apiEnv = { AUDIODL_PORT: String(API_PORT), AUDIODL_HOST: process.env.AUDIODL_HOST || "127.0.0.1" };
+const apiEnv = {
+  AUDIODL_PORT: String(API_PORT),
+  AUDIODL_HOST: process.env.AUDIODL_HOST || "127.0.0.1",
+};
 const seeded = !process.env.AUDIODL_DATA && !process.env.AUDIODL_PASSWORD;
 if (seeded) apiEnv.AUDIODL_PASSWORD = "crate-dev";
+
+let api = null;
+let restartingApi = false;
+
+function startApi() {
+  api = start("api", ["--watch", "server/index.mjs"], apiEnv, (code, signal) => {
+    if (!restartingApi) {
+      console.error(`[dev] api exited (${signal ?? code})`);
+      stop(code || 1);
+      return;
+    }
+    restartingApi = false;
+    startApi();
+  });
+}
+
+function restartApi() {
+  if (!api || restartingApi) return;
+  restartingApi = true;
+  console.log("[dev] dlAudio.sh changed, restarting the api");
+  api.kill("SIGTERM");
+}
+
+// `node --watch` follows what the server imports, and dlAudio.sh is not one of
+// those: it is spawned per job. Watch the folder rather than the file, because
+// an editor that saves by renaming would leave a file watch pointing at the
+// copy that no longer exists.
+function watchDownloader() {
+  if (!fs.existsSync(SCRIPT)) return;
+  let timer = null;
+  let last = fs.statSync(SCRIPT).mtimeMs;
+  try {
+    fs.watch(ROOT, (event, name) => {
+      if (name !== "dlAudio.sh") return;
+      // One save is often two events in a row; one restart per burst is enough.
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!fs.existsSync(SCRIPT)) return;
+        const stamp = fs.statSync(SCRIPT).mtimeMs;
+        if (stamp === last) return;
+        last = stamp;
+        restartApi();
+      }, 200);
+    });
+  } catch {
+    // Watching is a convenience, and the API does not depend on it.
+  }
+}
 
 console.log(`[dev] api ${API}  ui http://localhost:${UI_PORT}`);
 console.log("[dev] working tree only: no build, no tag, nothing published");
 if (seeded) console.log("[dev] dev data is web/data, password 'crate-dev' (set AUDIODL_DATA to use another)");
+if (fs.existsSync(SCRIPT)) console.log("[dev] watching dlAudio.sh as well as web/server");
 
-start("api", ["--watch", "server/index.mjs"], apiEnv);
+startApi();
 
 if (!(await waitForApi())) {
   console.error(
@@ -85,6 +145,8 @@ if (!(await waitForApi())) {
   );
   stop(1);
 }
+
+watchDownloader();
 
 start(
   "vite",
