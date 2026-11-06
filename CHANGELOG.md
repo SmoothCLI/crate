@@ -9,12 +9,20 @@ All notable changes to Crate are documented here. The format follows
 ### Added
 
 - Browser layout audit in CI: the Playwright run at 390, 768 and 1440 px now
-  gates the image build instead of living only on a developer's machine.
-- `CONTRIBUTING.md`, issue forms, a pull request template and weekly Dependabot
-  updates.
+  gates the image build instead of living only on a developer's machine. Chromium
+  is cached by lockfile hash, and the audit is skipped when a push cannot have
+  changed what it renders.
+- `CONTRIBUTING.md`, `SECURITY.md`, `RELEASING.md`, issue forms, a pull request
+  template and weekly Dependabot updates.
 - A repository consistency test (`test/repo.test.mjs`) that fails when the
   workflow, compose files, README, changelog and script version drift apart - the
   class of breakage a rename causes.
+
+### Changed
+
+- The server runs on Express 5.3 instead of 4.22, and the UI typechecks with
+  TypeScript 7. Neither changed a call site: the whole server suite passes on
+  the new majors.
 
 ### Fixed
 
