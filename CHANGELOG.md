@@ -6,6 +6,11 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-11-06
+
+A minor release: the web UI now names the release it is running, links to the
+project source, and tells the owner when a newer Crate has been published.
+
 ### Added
 
 - The queue footer now names the running release and links to the project
@@ -85,6 +90,7 @@ that drives it.
   and the compose files. The downloader keeps its `dlAudio.sh` filename and the
   `AUDIODL_*` environment variables, which the server and the tests refer to.
 
-[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.1.1...HEAD
+[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.2.0
 [3.1.1]: https://github.com/SmoothCLI/crate/releases/tag/v3.1.1
 [3.1.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.1.0
