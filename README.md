@@ -48,6 +48,7 @@ A demonstration GIF of the audioDL workflow will be added soon.
 - 📝 Embedded metadata and artwork handling.
 - ✨ Optional enhanced terminal UI powered by `gum`.
 - 🔄 Safe workflows with resume support and duplicate detection.
+- 🖥️ Optional self-hosted web UI with a review card, queue and guest streaming.
 
 ---
 
@@ -230,19 +231,19 @@ cd audioDL
 Make the script executable:
 
 ```bash
-chmod +x audioDL
+chmod +x dlAudio.sh
 ```
 
 Run:
 
 ```bash
-./audioDL <URL>
+./dlAudio.sh <URL>
 ```
 
 For easier access, you can add it to your `$PATH`:
 
 ```bash
-sudo ln -s "$(pwd)/audioDL" /usr/local/bin/audioDL
+sudo ln -s "$(pwd)/dlAudio.sh" /usr/local/bin/audioDL
 ```
 
 ---
@@ -286,6 +287,29 @@ Download completed.
 Saved:
 ~/Music/Example Artist/Example Album/Example Track.m4a
 ```
+
+---
+
+## Web UI
+
+The same downloader also ships with a self-hosted web app in `web/`: paste a link, review the tags and cover art it found, fix what you like, and queue it. The script still does all the downloading, normalizing and tagging.
+
+```bash
+cd web
+npm install
+npm run build
+AUDIODL_PASSWORD=choose-something node server/index.mjs
+```
+
+Open `http://localhost:8080`; the first visit asks for an instance name and an owner password. Guests can download too - their audio is streamed straight to the browser and never written to the library.
+
+With Docker, from the folder that holds `dlAudio.sh`:
+
+```bash
+docker compose up -d
+```
+
+Then open `http://localhost:8099`. The full manual - queue, `/admin`, formats, cover art, guest limits - is in [`web/README.md`](web/README.md).
 
 ---
 

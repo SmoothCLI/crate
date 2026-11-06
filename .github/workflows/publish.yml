@@ -1,0 +1,117 @@
+name: publish
+
+# Builds the container image and pushes it to the GitHub Container Registry:
+#
+#   ghcr.io/smoothcli/audio-dl:latest        every push to main
+#   ghcr.io/smoothcli/audio-dl:1.2.3         tag v1.2.3
+#   ghcr.io/smoothcli/audio-dl:1.2           tag v1.2.3 (moving minor)
+#   ghcr.io/smoothcli/audio-dl:sha-abc1234   every push, immutable
+#
+# A pull request runs the tests only; it never pushes an image. Publishing on a
+# tag also needs the repository's default branch to have this workflow, and the
+# package's visibility set to public once (Packages -> package settings) so
+# `docker pull` works without signing in.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/smoothcli/audio-dl
+
+jobs:
+  test:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The script tests need ffmpeg/ffprobe (a generated tone is encoded and
+      # measured) and jq; the runner already ships jq.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Downloader tests
+        run: node --test test/*.test.mjs
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # The server suite is browser-free; the Playwright layout audit is run
+      # separately, so skip the browser download here.
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - name: Typecheck
+        working-directory: web
+        run: npm run typecheck
+
+      - name: Web tests
+        working-directory: web
+        run: npm test
+
+      - name: Build UI
+        working-directory: web
+        run: npm run build
+
+  publish:
+    name: publish image
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=audioDL
+            org.opencontainers.image.description=Terminal music downloader and self-hosted web queue
+            org.opencontainers.image.licenses=MIT
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

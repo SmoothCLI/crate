@@ -1,0 +1,676 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --canvas: #eef0f6;
+  --surface: #ffffff;
+  --surface-2: #f7f8fb;
+  --surface-3: #eceef5;
+  --field: #ffffff;
+  --line: rgb(15 20 40 / 10%);
+  --line-strong: rgb(15 20 40 / 18%);
+  --ink: #16181d;
+  --ink-2: #5e6470;
+  --ink-3: #8b909c;
+  --btn: #16181d;
+  --btn-ink: #ffffff;
+  /* The Catppuccin theme (theme.css) swaps this for the guest's accent.
+     Everything else uses ink, so the default look is unchanged. */
+  --accent: var(--ink);
+  --accent-strong: var(--ink);
+  --danger: #c0261c;
+  --shadow: rgb(20 30 60 / 6%);
+  --shadow-deep: rgb(20 30 60 / 18%);
+  --art-shadow: 0 12px 32px rgb(20 30 60 / 18%);
+  --hairline: rgb(255 255 255 / 75%);
+  /* Frosted panels: the one value that makes the whole site glassy. */
+  --glass: rgb(255 255 255 / 66%);
+  --glass-btn: rgb(255 255 255 / 58%);
+  --glass-field: rgb(255 255 255 / 72%);
+  --aura-1: rgb(130 150 255 / 42%);
+  --aura-2: rgb(255 145 200 / 34%);
+  --aura-3: rgb(105 225 205 / 32%);
+}
+
+:root[data-theme="dark"] {
+  --canvas: #08080b;
+  --surface: #141418;
+  --surface-2: #191920;
+  --surface-3: #1e1e26;
+  --field: #1b1b22;
+  --line: rgb(255 255 255 / 9%);
+  --line-strong: rgb(255 255 255 / 18%);
+  --ink: #f4f5f7;
+  --ink-2: #a4a8b3;
+  --ink-3: #6f7480;
+  --btn: #f4f5f7;
+  --btn-ink: #08080b;
+  --danger: #ff6b5e;
+  --shadow: rgb(0 0 0 / 40%);
+  --shadow-deep: rgb(0 0 0 / 75%);
+  --art-shadow: 0 16px 40px rgb(0 0 0 / 55%);
+  --hairline: rgb(255 255 255 / 7%);
+  --glass: rgb(22 22 28 / 60%);
+  --glass-btn: rgb(30 30 38 / 55%);
+  --glass-field: rgb(27 27 34 / 72%);
+  --aura-1: rgb(70 95 255 / 26%);
+  --aura-2: rgb(255 65 145 / 18%);
+  --aura-3: rgb(0 200 170 / 15%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    --canvas: #08080b;
+    --surface: #141418;
+    --surface-2: #191920;
+    --surface-3: #1e1e26;
+    --field: #1b1b22;
+    --line: rgb(255 255 255 / 9%);
+    --line-strong: rgb(255 255 255 / 18%);
+    --ink: #f4f5f7;
+    --ink-2: #a4a8b3;
+    --ink-3: #6f7480;
+    --btn: #f4f5f7;
+    --btn-ink: #08080b;
+    --danger: #ff6b5e;
+    --shadow: rgb(0 0 0 / 40%);
+    --shadow-deep: rgb(0 0 0 / 75%);
+    --art-shadow: 0 16px 40px rgb(0 0 0 / 55%);
+    --hairline: rgb(255 255 255 / 7%);
+    --glass: rgb(22 22 28 / 60%);
+    --glass-btn: rgb(30 30 38 / 55%);
+    --glass-field: rgb(27 27 34 / 72%);
+    --aura-1: rgb(70 95 255 / 26%);
+    --aura-2: rgb(255 65 145 / 18%);
+    --aura-3: rgb(0 200 170 / 15%);
+  }
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+html {
+  background: var(--canvas);
+}
+
+/* Three slow auras behind everything. They are the colour the glass panels
+   pick up, which is why the cards are translucent at all. */
+html::before {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38vmax 38vmax at 16% 10%, var(--aura-1), transparent 64%),
+    radial-gradient(42vmax 42vmax at 86% 2%, var(--aura-2), transparent 62%),
+    radial-gradient(48vmax 48vmax at 52% 108%, var(--aura-3), transparent 66%);
+  filter: blur(46px);
+  animation: aura-drift 46s ease-in-out infinite alternate;
+}
+
+@keyframes aura-drift {
+  0% {
+    transform: translate3d(-1.5%, -1%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, 1.5%, 0) scale(1.05);
+  }
+  100% {
+    transform: translate3d(-1%, 2.5%, 0) scale(1.02);
+  }
+}
+
+html,
+body {
+  color: var(--ink);
+  margin: 0;
+}
+
+body {
+  background: transparent;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--ink);
+  color: var(--canvas);
+}
+
+.mono {
+  font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 0.86em;
+  font-variant-numeric: tabular-nums;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Every panel on the site: frosted glass over the auras, lit along the top
+   edge, with a deep soft shadow instead of a hard border. */
+.card {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px var(--shadow),
+    0 28px 56px -36px var(--shadow-deep),
+    inset 0 1px 0 var(--hairline);
+}
+
+.inset {
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.field {
+  width: 100%;
+  background: var(--glass-field);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  padding: 9px 12px;
+  font: inherit;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.field::placeholder {
+  color: var(--ink-3);
+}
+
+.field:hover {
+  border-color: var(--ink-3);
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--field) 88%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent-strong) 12%, transparent),
+    0 12px 28px -20px var(--shadow-deep);
+}
+
+/* A field that holds chips is a div rather than the input itself, so the focus
+   ring has to follow the input inside it. */
+.field:focus-within {
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--field) 88%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent-strong) 12%, transparent),
+    0 12px 28px -20px var(--shadow-deep);
+}
+
+.field:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 11px;
+  border: 1px solid var(--line-strong);
+  background: var(--glass-btn);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
+  color: var(--ink);
+  /* Buttons are often links (gear → /admin), and an underline ruins the icon. */
+  text-decoration: none;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 var(--hairline);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 160ms ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 var(--hairline),
+    0 10px 22px -16px var(--shadow-deep);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--btn) 88%, var(--canvas)),
+    var(--btn)
+  );
+  color: var(--btn-ink);
+  border-color: color-mix(in srgb, var(--btn) 70%, transparent);
+  font-weight: 560;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 18%),
+    0 14px 30px -18px var(--shadow-deep);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--btn) 98%, var(--canvas)),
+    color-mix(in srgb, var(--btn) 90%, var(--canvas))
+  );
+}
+
+.btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-2);
+  box-shadow: none;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-3) 65%, transparent);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+/* Rows of a list, separated by the hairline. `divide-y` paints its children's
+   border in currentColor, which is solid ink in both themes - too heavy next to
+   the glass cards. */
+.rows > * + * {
+  border-top: 1px solid var(--line);
+}
+
+/* A queue row is one big hit area, so the tint follows the pointer across the
+   whole row. The active row paints itself inline and keeps that colour. */
+.job-row {
+  transition: background-color 180ms ease;
+}
+
+.job-row:hover {
+  background: color-mix(in srgb, var(--surface-3) 55%, transparent);
+}
+
+/* The settings rail: the inactive rows warm up on hover and their icon lifts a
+   hair, which is enough to read as a control without moving the row. */
+.rail-tab {
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.rail-tab[aria-selected="false"]:hover {
+  background: color-mix(in srgb, var(--surface) 42%, transparent);
+  color: var(--ink);
+}
+
+.rail-icon {
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.rail-tab:hover .rail-icon {
+  transform: translateY(-1px) scale(1.08);
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: var(--line-strong);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 560;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 46%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  padding: 3px 9px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.bar {
+  height: 2px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar > i {
+  display: block;
+  height: 100%;
+  background: var(--accent-strong);
+  border-radius: 999px;
+  transition: width 260ms linear;
+}
+
+.bar-indeterminate > i {
+  width: 30%;
+  animation: slide 1.4s ease-in-out infinite;
+}
+
+@keyframes slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(340%);
+  }
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--ink-3);
+  flex: none;
+}
+
+.dot-live {
+  background: var(--accent-strong);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+
+.unfold {
+  animation: unfold 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes unfold {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.row-in {
+  animation: row-in 220ms ease both;
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Overview bars grow up from the baseline once when the card arrives. Only the
+   transform is animated: each bar carries its own opacity inline. */
+.chart-bar {
+  transform-origin: 50% 100%;
+  animation: bar-grow 620ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes bar-grow {
+  from {
+    transform: scaleY(0.04);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* Pages arrive in one motion: each block on a page rises a few pixels, in
+   order, instead of appearing all at once. */
+main > * {
+  animation: rise 480ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+main > *:nth-child(2) {
+  animation-delay: 45ms;
+}
+
+main > *:nth-child(3) {
+  animation-delay: 90ms;
+}
+
+main > *:nth-child(4) {
+  animation-delay: 135ms;
+}
+
+main > *:nth-child(5) {
+  animation-delay: 180ms;
+}
+
+main > *:nth-child(n + 6) {
+  animation-delay: 220ms;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-3), var(--surface-2), var(--surface-3));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -50% 0;
+  }
+}
+
+.log {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink-2);
+  max-height: 220px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+/* A trace of film grain over the page. Large near-black areas read as flat
+   fill on an OLED; at this strength it is felt rather than seen. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+
+/* The now-downloading card leaves by shrinking away, not by vanishing. */
+.hero-out {
+  animation: hero-out 560ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  pointer-events: none;
+}
+
+@keyframes hero-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+}
+
+/* /admin tabs. Every card stays mounted, so a half-edited form survives a tab
+   switch; only the active group is in layout, and it rises in on arrival. */
+.settings-grid > [data-tab] {
+  display: none;
+}
+
+.settings-grid[data-tab="general"] > [data-tab="general"],
+.settings-grid[data-tab="guests"] > [data-tab="guests"],
+.settings-grid[data-tab="downloads"] > [data-tab="downloads"],
+.settings-grid[data-tab="sources"] > [data-tab="sources"],
+.settings-grid[data-tab="library"] > [data-tab="library"],
+.settings-grid[data-tab="system"] > [data-tab="system"] {
+  display: block;
+  animation: rise 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* Effects off: the toggle in the header. No blur to composite, no movement,
+   no grain and no auras - an opaque, plain version of the same layout. */
+html[data-effects="off"]::before {
+  display: none;
+}
+
+html[data-effects="off"] body::after {
+  display: none;
+}
+
+html[data-effects="off"] *,
+html[data-effects="off"] *::before,
+html[data-effects="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+html[data-effects="off"] .card {
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-effects="off"] .inset {
+  background: var(--surface-2);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-effects="off"] .field {
+  background: var(--field);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-effects="off"] .btn {
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html[data-effects="off"] .btn-ghost {
+  background: transparent;
+}
+
+html[data-effects="off"] .btn-primary {
+  background: var(--btn);
+}
+
+html[data-effects="off"] .tag {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* A frozen indeterminate bar reads as "stuck"; a full, dimmed one reads as
+   "working" without any motion. */
+html[data-effects="off"] .bar-indeterminate > i {
+  width: 100%;
+  opacity: 0.45;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html::before {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

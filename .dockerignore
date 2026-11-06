@@ -1,0 +1,9 @@
+.git
+.gitignore
+.github
+web/node_modules
+web/dist
+web/data
+data
+music
+*.log

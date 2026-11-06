@@ -1,0 +1,289 @@
+/* Catppuccin, optional and per browser -------------------------------------
+   Four flavors, fourteen accents. The raw palette lives on
+   [data-catppuccin="<flavor>"] rather than on :root, so the picker's flavour
+   cards and accent swatches can borrow it just by carrying the attribute - the
+   colours are written down once. Only the :root rules map them onto the tokens
+   the rest of the UI reads, which is what actually themes the page.
+
+   Imported after index.css on purpose: the mapping and the built-in
+   [data-theme="dark"] block have the same specificity, and a flavor must win. */
+
+[data-catppuccin="latte"] {
+  color-scheme: light;
+
+  --ctp-rosewater: #dc8a78;
+  --ctp-flamingo: #dd7878;
+  --ctp-pink: #ea76cb;
+  --ctp-mauve: #8839ef;
+  --ctp-red: #d20f39;
+  --ctp-maroon: #e64553;
+  --ctp-peach: #fe640b;
+  --ctp-yellow: #df8e1d;
+  --ctp-green: #40a02b;
+  --ctp-teal: #179299;
+  --ctp-sky: #04a5e5;
+  --ctp-sapphire: #209fb5;
+  --ctp-blue: #1e66f5;
+  --ctp-lavender: #7287fd;
+
+  --ctp-text: #4c4f69;
+  --ctp-subtext1: #5c5f77;
+  --ctp-subtext0: #6c6f85;
+  --ctp-overlay2: #7c7f93;
+  --ctp-overlay1: #8c8fa1;
+  --ctp-overlay0: #9ca0b0;
+  --ctp-surface2: #acb0be;
+  --ctp-surface1: #bcc0cc;
+  --ctp-surface0: #ccd0da;
+  --ctp-base: #eff1f5;
+  --ctp-mantle: #e6e9ef;
+  --ctp-crust: #dce0e8;
+
+  --on-accent: var(--ctp-base);
+  --hairline: rgb(255 255 255 / 70%);
+  --shadow: rgb(20 30 60 / 7%);
+  --shadow-deep: rgb(20 30 60 / 18%);
+  --art-shadow: 0 12px 32px rgb(20 30 60 / 18%);
+}
+
+[data-catppuccin="frappe"] {
+  color-scheme: dark;
+
+  --ctp-rosewater: #f2d5cf;
+  --ctp-flamingo: #eebebe;
+  --ctp-pink: #f4b8e4;
+  --ctp-mauve: #ca9ee6;
+  --ctp-red: #e78284;
+  --ctp-maroon: #ea999c;
+  --ctp-peach: #ef9f76;
+  --ctp-yellow: #e5c890;
+  --ctp-green: #a6d189;
+  --ctp-teal: #81c8be;
+  --ctp-sky: #99d1db;
+  --ctp-sapphire: #85c1dc;
+  --ctp-blue: #8caaee;
+  --ctp-lavender: #babbf1;
+
+  --ctp-text: #c6d0f5;
+  --ctp-subtext1: #b5bfe2;
+  --ctp-subtext0: #a5adce;
+  --ctp-overlay2: #949cbb;
+  --ctp-overlay1: #838ba7;
+  --ctp-overlay0: #737994;
+  --ctp-surface2: #626880;
+  --ctp-surface1: #51576d;
+  --ctp-surface0: #414559;
+  --ctp-base: #303446;
+  --ctp-mantle: #292c3c;
+  --ctp-crust: #232634;
+
+  --on-accent: var(--ctp-crust);
+  --hairline: rgb(255 255 255 / 7%);
+  --shadow: rgb(0 0 0 / 40%);
+  --shadow-deep: rgb(0 0 0 / 75%);
+  --art-shadow: 0 16px 40px rgb(0 0 0 / 55%);
+}
+
+[data-catppuccin="macchiato"] {
+  color-scheme: dark;
+
+  --ctp-rosewater: #f4dbd6;
+  --ctp-flamingo: #f0c6c6;
+  --ctp-pink: #f5bde6;
+  --ctp-mauve: #c6a0f6;
+  --ctp-red: #ed8796;
+  --ctp-maroon: #ee99a0;
+  --ctp-peach: #f5a97f;
+  --ctp-yellow: #eed49f;
+  --ctp-green: #a6da95;
+  --ctp-teal: #8bd5ca;
+  --ctp-sky: #91d7e3;
+  --ctp-sapphire: #7dc4e4;
+  --ctp-blue: #8aadf4;
+  --ctp-lavender: #b7bdf8;
+
+  --ctp-text: #cad3f5;
+  --ctp-subtext1: #b8c0e0;
+  --ctp-subtext0: #a5adcb;
+  --ctp-overlay2: #939ab7;
+  --ctp-overlay1: #8087a2;
+  --ctp-overlay0: #6e738d;
+  --ctp-surface2: #5b6078;
+  --ctp-surface1: #494d64;
+  --ctp-surface0: #363a4f;
+  --ctp-base: #24273a;
+  --ctp-mantle: #1e2030;
+  --ctp-crust: #181926;
+
+  --on-accent: var(--ctp-crust);
+  --hairline: rgb(255 255 255 / 7%);
+  --shadow: rgb(0 0 0 / 40%);
+  --shadow-deep: rgb(0 0 0 / 75%);
+  --art-shadow: 0 16px 40px rgb(0 0 0 / 55%);
+}
+
+[data-catppuccin="mocha"] {
+  color-scheme: dark;
+
+  --ctp-rosewater: #f5e0dc;
+  --ctp-flamingo: #f2cdcd;
+  --ctp-pink: #f5c2e7;
+  --ctp-mauve: #cba6f7;
+  --ctp-red: #f38ba8;
+  --ctp-maroon: #eba0ac;
+  --ctp-peach: #fab387;
+  --ctp-yellow: #f9e2af;
+  --ctp-green: #a6e3a1;
+  --ctp-teal: #94e2d5;
+  --ctp-sky: #89dceb;
+  --ctp-sapphire: #74c7ec;
+  --ctp-blue: #89b4fa;
+  --ctp-lavender: #b4befe;
+
+  --ctp-text: #cdd6f4;
+  --ctp-subtext1: #bac2de;
+  --ctp-subtext0: #a6adc8;
+  --ctp-overlay2: #9399b2;
+  --ctp-overlay1: #7f849c;
+  --ctp-overlay0: #6c7086;
+  --ctp-surface2: #585b70;
+  --ctp-surface1: #45475a;
+  --ctp-surface0: #313244;
+  --ctp-base: #1e1e2e;
+  --ctp-mantle: #181825;
+  --ctp-crust: #11111b;
+
+  --on-accent: var(--ctp-crust);
+  --hairline: rgb(255 255 255 / 7%);
+  --shadow: rgb(0 0 0 / 40%);
+  --shadow-deep: rgb(0 0 0 / 75%);
+  --art-shadow: 0 16px 40px rgb(0 0 0 / 55%);
+}
+
+/* The whole app, with a flavor chosen. Surfaces and ink come from the flavor;
+   the accent is the guest's own pick and carries the live parts of the page -
+   auras, progress, focus rings and the overview chart. */
+:root[data-catppuccin] {
+  --canvas: var(--ctp-crust);
+  --surface: var(--ctp-base);
+  --surface-2: var(--ctp-mantle);
+  --surface-3: var(--ctp-surface0);
+  --field: var(--ctp-mantle);
+  --line: color-mix(in srgb, var(--ctp-surface1) 85%, transparent);
+  --line-strong: color-mix(in srgb, var(--ctp-overlay0) 55%, transparent);
+  --ink: var(--ctp-text);
+  --ink-2: var(--ctp-subtext0);
+  --ink-3: var(--ctp-overlay1);
+  --danger: var(--ctp-red);
+  --glass: color-mix(in srgb, var(--ctp-base) 68%, transparent);
+  --glass-btn: color-mix(in srgb, var(--ctp-surface0) 62%, transparent);
+  --glass-field: color-mix(in srgb, var(--ctp-mantle) 82%, transparent);
+
+  --accent: var(--ctp-mauve);
+  --accent-strong: var(--accent);
+  --btn: var(--accent);
+  --btn-ink: var(--on-accent);
+
+  --aura-1: color-mix(in srgb, var(--accent) 34%, transparent);
+  --aura-2: color-mix(in srgb, var(--ctp-pink) 24%, transparent);
+  --aura-3: color-mix(in srgb, var(--ctp-sapphire) 26%, transparent);
+}
+
+/* Latte's accents are darker than the other three, so the pastel pairing used
+   on the dark flavors would put white text on pink. There the button keeps the
+   text colour as its base and only picks up a 30% accent tint, and the live
+   accent is mixed towards ink so a 2px progress bar stays visible. */
+:root[data-catppuccin="latte"] {
+  --accent-strong: color-mix(in srgb, var(--accent) 50%, var(--ctp-text));
+  --btn: color-mix(in srgb, var(--accent) 30%, var(--ctp-text));
+  --btn-ink: var(--ctp-base);
+
+  --aura-1: color-mix(in srgb, var(--accent) 26%, transparent);
+  --aura-2: color-mix(in srgb, var(--ctp-pink) 20%, transparent);
+  --aura-3: color-mix(in srgb, var(--ctp-sapphire) 20%, transparent);
+}
+
+:root[data-catppuccin][data-accent="rosewater"] {
+  --accent: var(--ctp-rosewater);
+}
+:root[data-catppuccin][data-accent="flamingo"] {
+  --accent: var(--ctp-flamingo);
+}
+:root[data-catppuccin][data-accent="pink"] {
+  --accent: var(--ctp-pink);
+}
+:root[data-catppuccin][data-accent="mauve"] {
+  --accent: var(--ctp-mauve);
+}
+:root[data-catppuccin][data-accent="red"] {
+  --accent: var(--ctp-red);
+}
+:root[data-catppuccin][data-accent="maroon"] {
+  --accent: var(--ctp-maroon);
+}
+:root[data-catppuccin][data-accent="peach"] {
+  --accent: var(--ctp-peach);
+}
+:root[data-catppuccin][data-accent="yellow"] {
+  --accent: var(--ctp-yellow);
+}
+:root[data-catppuccin][data-accent="green"] {
+  --accent: var(--ctp-green);
+}
+:root[data-catppuccin][data-accent="teal"] {
+  --accent: var(--ctp-teal);
+}
+:root[data-catppuccin][data-accent="sky"] {
+  --accent: var(--ctp-sky);
+}
+:root[data-catppuccin][data-accent="sapphire"] {
+  --accent: var(--ctp-sapphire);
+}
+:root[data-catppuccin][data-accent="blue"] {
+  --accent: var(--ctp-blue);
+}
+:root[data-catppuccin][data-accent="lavender"] {
+  --accent: var(--ctp-lavender);
+}
+
+/* The picker's flavour cards and accent swatches carry data-catppuccin
+   themselves, so their own dots read the same palette. These keep the small
+   previews on the dialog's own surface. */
+.flavor-card {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.flavor-card:hover {
+  transform: translateY(-1px);
+}
+
+.flavor-card[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+.accent-dot {
+  transition:
+    outline-color 160ms ease,
+    transform 160ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.accent-dot:hover:not(:disabled) {
+  transform: scale(1.12);
+}
+
+.accent-dot[aria-pressed="true"] {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+html[data-effects="off"] .flavor-card,
+html[data-effects="off"] .accent-dot {
+  transition: none;
+}
+
+html[data-effects="off"] .flavor-card:hover {
+  transform: none;
+}

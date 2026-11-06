@@ -1,0 +1,18 @@
+# Server state: password hash, remembered sessions, saved queue, config.json
+# (webhook URL), staged guest files.
+data/
+
+# Only used when the library is bind-mounted from inside the repo.
+music/
+
+# Web app build, dependencies and its own runtime state.
+web/node_modules/
+web/dist/
+web/data/
+
+# Local overrides and editor/OS noise.
+.env
+.env.local
+*.log
+.DS_Store
+web/test-results/
