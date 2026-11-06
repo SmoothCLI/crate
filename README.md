@@ -2,7 +2,7 @@
   <img src="https://github.com/SmoothCLI/.github/blob/main/profile/SmoothCLI.png?raw=true" width="150">
 </p>
 
-<h1 align="center">audioDL</h1>
+<h1 align="center">Crate</h1>
 
 <p align="center">
   A smooth, interactive music downloader powered by yt-dlp and FFmpeg.
@@ -17,14 +17,14 @@
 
 ---
 
-audioDL is a terminal-based music downloader that combines `yt-dlp`, `FFmpeg`, and related tools into a simple guided workflow.
+Crate is a terminal-based music downloader that combines `yt-dlp`, `FFmpeg`, and related tools into a simple guided workflow.
 
 It handles downloading, metadata, artwork, normalization, and music library organization automatically, creating clean libraries ready for Jellyfin and other media servers.
 
 No complicated commands.  
 No remembering dozens of flags.
 
-Just provide a URL and let audioDL handle the rest.
+Just provide a URL and let Crate handle the rest.
 
 ---
 
@@ -42,7 +42,7 @@ Just provide a URL and let audioDL handle the rest.
 
 ## Highlights
 
-- 🎵 Single command workflow: paste a URL, audioDL does the rest.
+- 🎵 Single command workflow: paste a URL, Crate does the rest.
 - 🎧 Best available audio selection with EBU R128 loudness normalization.
 - 📂 Automatic music library organization.
 - 📝 Embedded metadata and artwork handling.
@@ -52,11 +52,11 @@ Just provide a URL and let audioDL handle the rest.
 
 ---
 
-## Why audioDL?
+## Why Crate?
 
 Tools like `yt-dlp` and `FFmpeg` are incredibly powerful, but everyday workflows can become repetitive and difficult to remember.
 
-audioDL does not replace these tools.
+Crate does not replace these tools.
 
 Instead, it combines them into a smoother workflow so you can focus on your music instead of remembering commands, flags, and filters.
 
@@ -64,7 +64,7 @@ Instead, it combines them into a smoother workflow so you can focus on your musi
 
 ## How it works
 
-audioDL follows a simple processing pipeline:
+Crate follows a simple processing pipeline:
 
 ```text
 URL
@@ -88,7 +88,7 @@ Organized music library
 
 ### 🌐 Supported sources
 
-Powered by `yt-dlp`, audioDL supports hundreds of websites.
+Powered by `yt-dlp`, Crate supports hundreds of websites.
 
 Tested sources include:
 
@@ -100,7 +100,7 @@ Tested sources include:
 
 ### 🎧 Automatic audio processing
 
-audioDL automatically handles:
+Crate automatically handles:
 
 * Best available audio stream selection.
 * EBU R128 loudness normalization.
@@ -121,7 +121,7 @@ A clean and organized music library with embedded metadata and artwork, optimize
 
 ### 📝 Metadata management
 
-audioDL automatically retrieves metadata when available.
+Crate automatically retrieves metadata when available.
 
 Supported fields:
 
@@ -139,7 +139,7 @@ Final metadata is embedded directly into the output file.
 
 ### 🖼️ Artwork support
 
-audioDL supports automatic artwork handling:
+Crate supports automatic artwork handling:
 
 * Downloads cover artwork when available.
 * Converts and optimizes images using ImageMagick.
@@ -170,7 +170,7 @@ The music directory can be customized for:
 
 ### 🔄 Reliable workflows
 
-audioDL includes features designed for daily use:
+Crate includes features designed for daily use:
 
 * Resume support after interrupted downloads.
 * Session checkpoints.
@@ -182,7 +182,7 @@ audioDL includes features designed for daily use:
 
 ### ✨ Beautiful terminal UI
 
-With optional [`gum`](https://github.com/charmbracelet/gum) support, audioDL provides:
+With optional [`gum`](https://github.com/charmbracelet/gum) support, Crate provides:
 
 * Styled messages.
 * Interactive prompts.
@@ -190,7 +190,7 @@ With optional [`gum`](https://github.com/charmbracelet/gum) support, audioDL pro
 * Loading spinners.
 * Improved terminal feedback.
 
-Without `gum`, audioDL continues to work in a normal terminal.
+Without `gum`, Crate continues to work in a normal terminal.
 
 ---
 
@@ -225,7 +225,7 @@ Clone the repository:
 
 ```bash
 git clone https://github.com/SmoothCLI/audioDL.git
-cd audioDL
+cd Crate
 ```
 
 Make the script executable:
@@ -243,7 +243,7 @@ Run:
 For easier access, you can add it to your `$PATH`:
 
 ```bash
-sudo ln -s "$(pwd)/dlAudio.sh" /usr/local/bin/audioDL
+sudo ln -s "$(pwd)/dlAudio.sh" /usr/local/bin/crate
 ```
 
 ---
@@ -253,13 +253,13 @@ sudo ln -s "$(pwd)/dlAudio.sh" /usr/local/bin/audioDL
 Download a SoundCloud track:
 
 ```bash
-audioDL https://soundcloud.com/example/song
+crate https://soundcloud.com/example/song
 ```
 
 Download audio from YouTube:
 
 ```bash
-audioDL https://youtube.com/watch?v=EXAMPLE
+crate https://youtube.com/watch?v=EXAMPLE
 ```
 
 Example workflow:
@@ -303,10 +303,18 @@ AUDIODL_PASSWORD=choose-something node server/index.mjs
 
 Open `http://localhost:8080`; the first visit asks for an instance name and an owner password. Guests can download too - their audio is streamed straight to the browser and never written to the library.
 
-With Docker, from the folder that holds `dlAudio.sh`:
+The image is published to the GitHub Container Registry, so Docker only has to
+pull it:
 
 ```bash
+docker pull ghcr.io/smoothcli/crate:latest
 docker compose up -d
+```
+
+While changing the server or the UI, build the image from this checkout instead:
+
+```bash
+docker compose -f compose.dev.yaml up --build
 ```
 
 Then open `http://localhost:8099`. The full manual - queue, `/admin`, formats, cover art, guest limits - is in [`web/README.md`](web/README.md).
@@ -346,7 +354,7 @@ No build process is required.
 If installed system-wide:
 
 ```bash
-sudo rm /usr/local/bin/audioDL
+sudo rm /usr/local/bin/crate
 ```
 
 Downloaded music files are not removed automatically.
@@ -355,7 +363,7 @@ Downloaded music files are not removed automatically.
 
 ## Project status
 
-audioDL is considered feature-complete for its current workflow.
+Crate is considered feature-complete for its current workflow.
 
 Future updates will focus on:
 
@@ -395,7 +403,7 @@ Please keep the workflow simple and avoid adding unnecessary complexity to the u
 
 ## License
 
-audioDL is released under the [MIT License](LICENSE).
+Crate is released under the [MIT License](LICENSE).
 
 <p align="center">
   Made with ❤️ and too much terminal time.

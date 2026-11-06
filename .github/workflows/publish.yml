@@ -2,10 +2,10 @@ name: publish
 
 # Builds the container image and pushes it to the GitHub Container Registry:
 #
-#   ghcr.io/smoothcli/audio-dl:latest        every push to main
-#   ghcr.io/smoothcli/audio-dl:1.2.3         tag v1.2.3
-#   ghcr.io/smoothcli/audio-dl:1.2           tag v1.2.3 (moving minor)
-#   ghcr.io/smoothcli/audio-dl:sha-abc1234   every push, immutable
+#   ghcr.io/smoothcli/crate:latest        every push to main
+#   ghcr.io/smoothcli/crate:1.2.3         tag v1.2.3
+#   ghcr.io/smoothcli/crate:1.2           tag v1.2.3 (moving minor)
+#   ghcr.io/smoothcli/crate:sha-abc1234   every push, immutable
 #
 # A pull request runs the tests only; it never pushes an image. Publishing on a
 # tag also needs the repository's default branch to have this workflow, and the
@@ -28,7 +28,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/smoothcli/audio-dl
+  IMAGE: ghcr.io/smoothcli/crate
 
 jobs:
   test:
@@ -101,7 +101,7 @@ jobs:
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
           labels: |
-            org.opencontainers.image.title=audioDL
+            org.opencontainers.image.title=Crate
             org.opencontainers.image.description=Terminal music downloader and self-hosted web queue
             org.opencontainers.image.licenses=MIT
 
