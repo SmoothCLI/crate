@@ -2,10 +2,14 @@ name: publish
 
 # Builds the container image and pushes it to the GitHub Container Registry:
 #
-#   ghcr.io/smoothcli/audio-dl:latest        every push to main
-#   ghcr.io/smoothcli/audio-dl:1.2.3         tag v1.2.3
-#   ghcr.io/smoothcli/audio-dl:1.2           tag v1.2.3 (moving minor)
-#   ghcr.io/smoothcli/audio-dl:sha-abc1234   every push, immutable
+#   ghcr.io/smoothcli/crate:latest        every push to main
+#   ghcr.io/smoothcli/crate:1.2.3         tag v1.2.3
+#   ghcr.io/smoothcli/crate:1.2           tag v1.2.3 (moving minor)
+#   ghcr.io/smoothcli/crate:sha-abc1234   every push, immutable
+#
+# A manual run from the Actions tab can also stamp a version onto an existing
+# build (`version`, e.g. 3.1.0); it produces the version tag and its moving
+# minor tag, which is how an image is re-published after a rename.
 #
 # A pull request runs the tests only; it never pushes an image. Publishing on a
 # tag also needs the repository's default branch to have this workflow, and the
@@ -18,6 +22,10 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Also tag the image with this version, e.g. 3.1.0"
+        required: false
 
 concurrency:
   group: publish-${{ github.ref }}
@@ -28,24 +36,33 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/smoothcli/audio-dl
+  IMAGE: ghcr.io/smoothcli/crate
 
 jobs:
   test:
     name: tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The script tests need ffmpeg/ffprobe (a generated tone is encoded and
       # measured) and jq; the runner already ships jq.
       - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+        # Some runner images already ship ffmpeg/ffprobe. When apt is needed,
+        # a hung mirror should fail the step instead of stalling the job for
+        # the whole workflow timeout.
+        run: |
+          if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
+            ffmpeg -version | head -1
+            exit 0
+          fi
+          sudo timeout 300 apt-get update
+          sudo timeout 300 apt-get install -y --no-install-recommends ffmpeg
 
       - name: Downloader tests
         run: node --test test/*.test.mjs
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -71,16 +88,91 @@ jobs:
         working-directory: web
         run: npm run build
 
+  layout:
+    name: layout audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The scope check below diffs against the previous commit.
+          fetch-depth: 0
+
+      # Chromium is the slowest thing in CI. Skip the audit when a push cannot
+      # have changed anything it renders, and cache the browser so a run that
+      # does need it only installs the system libraries.
+      - name: Check whether the UI changed
+        id: scope
+        run: |
+          run=true
+          case "${{ github.event_name }}" in
+            push)
+              if [ "${{ github.ref_type }}" = "branch" ]; then
+                if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+                  run=true
+                else
+                  changed=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" || true)
+                  printf '%s\n' "$changed" | grep -qE '^(web/|\.github/workflows/publish\.yml)' || run=false
+                fi
+              fi
+              ;;
+            pull_request)
+              changed=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" || true)
+              printf '%s\n' "$changed" | grep -qE '^(web/|\.github/workflows/publish\.yml)' || run=false
+              ;;
+          esac
+          echo "layout audit: $run"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v7
+        if: steps.scope.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Cache Chromium
+        if: steps.scope.outputs.run == 'true'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
+      - name: Install web dependencies
+        if: steps.scope.outputs.run == 'true'
+        working-directory: web
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium
+        if: steps.scope.outputs.run == 'true'
+        working-directory: web
+        # The download plus the system libraries is the slow part, and a stuck
+        # apt mirror should cost one retry rather than the whole job.
+        run: |
+          if ! timeout 420 npx playwright install --with-deps chromium; then
+            echo "first attempt failed or timed out, retrying once"
+            timeout 420 npx playwright install --with-deps chromium
+          fi
+
+      - name: Build UI
+        if: steps.scope.outputs.run == 'true'
+        working-directory: web
+        run: npm run build
+
+      - name: Layout audit at 390, 768 and 1440 px
+        if: steps.scope.outputs.run == 'true'
+        working-directory: web
+        run: npm run test:layout
+
   publish:
     name: publish image
-    needs: test
+    needs: [test, layout]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
 
       - name: Sign in to GHCR
         uses: docker/login-action@v3
@@ -89,9 +181,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # `inputs.version` is only set on a manual run. Split it so the image
+      # also gets the moving minor tag a real v* push would produce.
+      - name: Derive the minor tag
+        id: minor
+        if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+        env:
+          VERSION: ${{ inputs.version }}
+        run: echo "value=${VERSION%.*}" >> "$GITHUB_OUTPUT"
+
       - name: Tags and labels
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE }}
           tags: |
@@ -100,13 +201,17 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
+            # A manual run can stamp a version onto an existing build, which is
+            # how an image gets re-published after something like a rename.
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=raw,value=${{ steps.minor.outputs.value }},enable=${{ steps.minor.outputs.value != '' }}
           labels: |
-            org.opencontainers.image.title=audioDL
+            org.opencontainers.image.title=Crate
             org.opencontainers.image.description=Terminal music downloader and self-hosted web queue
             org.opencontainers.image.licenses=MIT
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
