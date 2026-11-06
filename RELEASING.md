@@ -20,6 +20,32 @@ heading disagree, so the two cannot drift.
 - **Major** (`4.0.0`) - a changed flag, a renamed environment variable, a
   library layout change, or anything that breaks an existing library.
 
+## One command
+
+```sh
+node scripts/release.mjs minor            # bump + write the changelog
+node scripts/release.mjs 3.4.0 --dry-run  # show the edits only
+node scripts/release.mjs minor --publish  # commit, tag, push, cut the release
+```
+
+`scripts/release.mjs` reads `VERSION` from `dlAudio.sh`, computes the next
+number (or takes one explicitly), moves the `[Unreleased]` notes under the new
+heading, rolls the comparison links forward, and then runs
+`test/repo.test.mjs` - the same check CI runs - so a version and a changelog
+cannot disagree. It refuses to run on an empty `[Unreleased]`, which is what
+keeps a release from shipping without notes. `--publish` commits, tags, pushes
+and creates the GitHub release from the changelog section.
+
+Run the full suites before `--publish`:
+
+```sh
+node --test test/*.test.mjs
+cd web && npm run typecheck && npm test && npm run build && cd ..
+```
+
+The checklist below is what the script does, for when it is not the right tool
+(a hotfix branch, a release from an older tree).
+
 ## Checklist
 
 1. **Decide the version** from the changes under `Unreleased`.
