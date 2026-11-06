@@ -6,6 +6,42 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A player bar in `/library`: album art, previous/play-pause/next, elapsed and
+  total time, a seek slider, volume with mute, the queue position and a stop
+  button. It drives a hidden `<audio>`, so it looks the same in every browser
+  instead of borrowing whatever control the browser draws.
+- Picking an album in `/library` shows that album alone - cover, name, track
+  count and size - with an arrow back to the rest of the grid.
+- Volume and mute are remembered per browser, so the bar opens where it was
+  left; storage being unavailable falls back to full volume rather than an
+  error.
+- Keyboard control for the library player: space plays and pauses, the arrows
+  move through the queue. Space stays a space inside a text field, and a focused
+  button keeps the browser's own handling.
+- `npm run dev` in `web/` runs the API and Vite from the working tree with hot
+  reload, on ports of their own, so a change can be looked at before it is
+  committed. It restarts the API when `dlAudio.sh` changes, which `node --watch`
+  cannot see because the script is spawned rather than imported.
+
+### Changed
+
+- Images are published only from a release tag. A push to `main` runs the tests
+  and the layout audit and stops there, so `latest` always names the newest
+  release instead of the last thing merged; the branch and sha tags are gone
+  with it. A manual run still stamps a version onto a fresh build.
+- `test/repo.test.mjs` fails if publishing from `main` comes back: the tag
+  gate, the tag list and `latest` are each asserted.
+
+### Fixed
+
+- The library player's icon buttons were squeezed to a few pixels by the base
+  button padding, which drew the transport icons as dots; sized icon buttons now
+  set their own box.
+- A library row no longer carries a separate play triangle - the cover is the
+  control - so it is one button instead of two near-identical ones.
+
 ## [3.4.0] - 2026-11-06
 
 ### Added
