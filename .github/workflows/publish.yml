@@ -222,7 +222,7 @@ jobs:
             org.opencontainers.image.title=Crate
             org.opencontainers.image.description=Terminal music downloader and self-hosted web queue
             org.opencontainers.image.licenses=MIT
-            org.opencontainers.image.version=${{ steps.label.outputs.value }}
+            org.opencontainers.image.version=${{ steps.label.outputs.value || github.ref_name }}
 
       - name: Build and push
         uses: docker/build-push-action@v7
