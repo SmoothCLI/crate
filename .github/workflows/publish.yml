@@ -145,7 +145,13 @@ jobs:
       - name: Install Chromium
         if: steps.scope.outputs.run == 'true'
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        # The download plus the system libraries is the slow part, and a stuck
+        # apt mirror should cost one retry rather than the whole job.
+        run: |
+          if ! timeout 420 npx playwright install --with-deps chromium; then
+            echo "first attempt failed or timed out, retrying once"
+            timeout 420 npx playwright install --with-deps chromium
+          fi
 
       - name: Build UI
         if: steps.scope.outputs.run == 'true'
