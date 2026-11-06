@@ -1,22 +1,39 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import type { LibraryBrowse, LibraryTrack } from "../types";
+import type { LibraryBrowse, LibrarySort, LibraryTrack } from "../types";
 import { formatBytes } from "../lib/format";
+import { Artwork } from "./Artwork";
 import { ArrowIcon, CloseIcon, DiscIcon, PlayIcon } from "./Icons";
+
+const SORTS: { value: LibrarySort; label: string }[] = [
+  { value: "track", label: "Album order" },
+  { value: "title", label: "Title" },
+  { value: "artist", label: "Artist" },
+  { value: "album", label: "Album" },
+  { value: "added", label: "Recently added" },
+  { value: "size", label: "Largest first" },
+];
 
 // The owner's library, read from the folder layout rather than from tags: the
 // paths already are ARTIST/ALBUM/[NN - ]TITLE.ext, which is what a download
-// writes, so what this page lists is exactly what is on disk.
+// writes, so what this page lists is exactly what is on disk. Covers come from
+// the same place, so a file that was copied in by hand has one too.
 export function LibraryPage() {
   const [browse, setBrowse] = useState<LibraryBrowse | null>(null);
   const [artist, setArtist] = useState<string | null>(null);
   const [album, setAlbum] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<LibrarySort>("track");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [playing, setPlaying] = useState<LibraryTrack | null>(null);
+  // Playback is a snapshot of the list that was showing when play was pressed:
+  // searching on does not cut the queue off mid-album.
+  const [queue, setQueue] = useState<LibraryTrack[]>([]);
+  const [index, setIndex] = useState(-1);
   const seq = useRef(0);
   const audio = useRef<HTMLAudioElement>(null);
+
+  const playing = index >= 0 ? queue[index] ?? null : null;
 
   // One request per pause in typing, not per keystroke: the server caches its
   // walk, but the request itself would still be wasted.
@@ -27,7 +44,12 @@ export function LibraryPage() {
         const mine = ++seq.current;
         setLoading(true);
         api
-          .browseLibrary(q ? { q } : { artist: artist ?? undefined, album: album ?? undefined })
+          .browseLibrary({
+            q: q || undefined,
+            artist: artist ?? undefined,
+            album: album ?? undefined,
+            sort,
+          })
           .then((result) => {
             if (seq.current !== mine) return;
             setBrowse(result);
@@ -44,7 +66,7 @@ export function LibraryPage() {
       q ? 220 : 0,
     );
     return () => window.clearTimeout(handle);
-  }, [query, artist, album]);
+  }, [query, artist, album, sort]);
 
   // A folder removed outside the app must not leave the page filtering on an
   // artist that no longer exists.
@@ -61,6 +83,19 @@ export function LibraryPage() {
       /* the browser refused; its own controls still work */
     });
   }, [playing]);
+
+  const startAt = (list: LibraryTrack[], track: LibraryTrack) => {
+    const at = list.findIndex((entry) => entry.path === track.path);
+    setQueue(list);
+    setIndex(at < 0 ? 0 : at);
+  };
+
+  const step = (delta: number) => {
+    setIndex((current) => {
+      const next = current + delta;
+      return next >= 0 && next < queue.length ? next : current;
+    });
+  };
 
   const searching = query.trim().length > 0;
   const artists = browse?.artists ?? [];
@@ -109,9 +144,9 @@ export function LibraryPage() {
 
       <main className="mx-auto max-w-[1080px] space-y-5 px-5 py-8">
         <div className="card p-4 sm:p-5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
-              className="field"
+              className="field min-w-0 flex-1"
               placeholder="Search titles, artists, albums"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -128,6 +163,30 @@ export function LibraryPage() {
                 title="Clear search"
               >
                 <CloseIcon />
+              </button>
+            )}
+            <select
+              className="field shrink-0 text-[12.5px]"
+              style={{ width: "auto" }}
+              value={sort}
+              onChange={(event) => setSort(event.target.value as LibrarySort)}
+              aria-label="Sort tracks"
+              title="Sort tracks"
+            >
+              {SORTS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {tracks.length > 0 && (
+              <button
+                className="btn shrink-0 text-[12.5px]"
+                onClick={() => startAt(tracks, tracks[0])}
+                title="Play everything in this list"
+              >
+                <PlayIcon />
+                Play all
               </button>
             )}
           </div>
@@ -160,7 +219,12 @@ export function LibraryPage() {
         )}
 
         {searching ? (
-          <TrackList tracks={tracks} playing={playing} onPlay={setPlaying} showArtist />
+          <TrackList
+            tracks={tracks}
+            playing={playing}
+            onPlay={(track) => startAt(tracks, track)}
+            showArtist
+          />
         ) : (
           <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
             <section className="card p-2.5" aria-label="Artists">
@@ -217,44 +281,57 @@ export function LibraryPage() {
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-wrap gap-1.5" aria-label="Albums">
+                  {album !== null && (
                     <button
                       type="button"
                       className="tag"
-                      aria-pressed={album === null}
-                      style={
-                        album === null
-                          ? { borderColor: "var(--ink-3)", color: "var(--ink)" }
-                          : undefined
-                      }
                       onClick={() => setAlbum(null)}
+                      title="Show every album again"
                     >
-                      All albums
+                      <CloseIcon size={11} />
+                      {album}
                     </button>
-                    {albums.map((entry) => (
-                      <button
-                        key={entry.name}
-                        type="button"
-                        className="tag"
-                        aria-pressed={album === entry.name}
-                        style={
-                          album === entry.name
-                            ? { borderColor: "var(--ink-3)", color: "var(--ink)" }
-                            : undefined
-                        }
-                        onClick={() => setAlbum(album === entry.name ? null : entry.name)}
-                      >
-                        <span className="max-w-[180px] truncate">{entry.name}</span>
-                        <span className="num" style={{ color: "var(--ink-3)" }}>
-                          {entry.tracks}
-                        </span>
-                      </button>
-                    ))}
+                  )}
+                  <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3" aria-label="Albums">
+                    {albums.map((entry) => {
+                      const active = album === entry.name;
+                      return (
+                        <button
+                          key={`${entry.artist}/${entry.name}`}
+                          type="button"
+                          className="card flex items-center gap-2.5 p-2 text-left"
+                          aria-pressed={active}
+                          style={
+                            active
+                              ? { borderColor: "var(--ink-3)", background: "var(--surface-2)" }
+                              : undefined
+                          }
+                          onClick={() => setAlbum(active ? null : entry.name)}
+                        >
+                          <Artwork
+                            src={api.libraryCover(entry.dir)}
+                            title={entry.name}
+                            className="h-12 w-12 rounded-[8px]"
+                            initialClassName="text-[15px] font-medium"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[12.5px]">{entry.name}</span>
+                            <span
+                              className="mt-0.5 block truncate text-[11px]"
+                              style={{ color: "var(--ink-3)" }}
+                            >
+                              {entry.tracks} {entry.tracks === 1 ? "track" : "tracks"} ·{" "}
+                              {formatBytes(entry.bytes)}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                   <TrackList
                     tracks={tracks}
                     playing={playing}
-                    onPlay={setPlaying}
+                    onPlay={(track) => startAt(tracks, track)}
                     showArtist={album === null}
                   />
                 </>
@@ -266,34 +343,69 @@ export function LibraryPage() {
 
       {playing && (
         <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-3">
-          <div className="card mx-auto flex max-w-[1080px] items-center gap-3 px-3 py-2.5">
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[12.5px] font-medium">{playing.title}</div>
-              <div className="truncate text-[11px]" style={{ color: "var(--ink-3)" }}>
-                {playing.artist || "Unknown artist"}
-                {playing.album ? ` · ${playing.album}` : ""}
+          <div className="card mx-auto max-w-[1080px] px-3 py-2.5">
+            <div className="flex items-center gap-3">
+              <Artwork
+                src={api.libraryCover(playing.dir)}
+                title={playing.album || playing.title}
+                className="h-10 w-10 rounded-[7px]"
+                initialClassName="text-[13px] font-medium"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12.5px] font-medium">{playing.title}</div>
+                <div className="truncate text-[11px]" style={{ color: "var(--ink-3)" }}>
+                  {playing.artist || "Unknown artist"}
+                  {playing.album ? ` · ${playing.album}` : ""}
+                </div>
               </div>
+              <span className="num hidden shrink-0 text-[11px] sm:block" style={{ color: "var(--ink-3)" }}>
+                {index + 1} / {queue.length}
+              </span>
+              <button
+                className="btn btn-ghost shrink-0 px-2"
+                onClick={() => {
+                  audio.current?.pause();
+                  setIndex(-1);
+                  setQueue([]);
+                }}
+                aria-label="Stop playing"
+                title="Stop playing"
+              >
+                <CloseIcon />
+              </button>
             </div>
-            <audio
-              ref={audio}
-              controls
-              autoPlay
-              preload="metadata"
-              src={api.libraryTrack(playing.path)}
-              className="h-9 w-[240px] max-w-[50vw]"
-              aria-label={`Playing ${playing.title}`}
-            />
-            <button
-              className="btn btn-ghost shrink-0 px-2"
-              onClick={() => {
-                audio.current?.pause();
-                setPlaying(null);
-              }}
-              aria-label="Stop playing"
-              title="Stop playing"
-            >
-              <CloseIcon />
-            </button>
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                className="btn btn-ghost h-8 w-8 shrink-0 rounded-full p-0"
+                onClick={() => step(-1)}
+                disabled={index <= 0}
+                aria-label="Previous track"
+                title="Previous track"
+              >
+                <ArrowIcon className="rotate-180" />
+              </button>
+              <audio
+                ref={audio}
+                controls
+                autoPlay
+                preload="metadata"
+                src={api.libraryTrack(playing.path)}
+                onEnded={() => {
+                  if (index + 1 < queue.length) setIndex(index + 1);
+                }}
+                className="h-9 min-w-0 flex-1"
+                aria-label={`Playing ${playing.title}`}
+              />
+              <button
+                className="btn btn-ghost h-8 w-8 shrink-0 rounded-full p-0"
+                onClick={() => step(1)}
+                disabled={index + 1 >= queue.length}
+                aria-label="Next track"
+                title="Next track"
+              >
+                <ArrowIcon />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -331,7 +443,14 @@ function TrackList({
               borderTop: index === 0 ? undefined : "1px solid var(--line)",
               background: active ? "var(--surface-2)" : undefined,
             }}
+            aria-current={active ? "true" : undefined}
           >
+            <Artwork
+              src={api.libraryCover(track.dir)}
+              title={track.album || track.title}
+              className="h-9 w-9 rounded-[7px]"
+              initialClassName="text-[11px] font-medium"
+            />
             <button
               type="button"
               className="btn btn-ghost h-8 w-8 shrink-0 rounded-full p-0"

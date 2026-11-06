@@ -48,6 +48,7 @@ const VIEWPORTS = [
 const OWNER_PAGES = [
   "/",
   "/dashboard",
+  "/library",
   "/admin#general",
   "/admin#guests",
   "/admin#downloads",
