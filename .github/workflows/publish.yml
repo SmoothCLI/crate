@@ -7,6 +7,10 @@ name: publish
 #   ghcr.io/smoothcli/crate:1.2           tag v1.2.3 (moving minor)
 #   ghcr.io/smoothcli/crate:sha-abc1234   every push, immutable
 #
+# A manual run from the Actions tab can also stamp a version onto an existing
+# build (`version`, e.g. 3.1.0); it produces the version tag and its moving
+# minor tag, which is how an image is re-published after a rename.
+#
 # A pull request runs the tests only; it never pushes an image. Publishing on a
 # tag also needs the repository's default branch to have this workflow, and the
 # package's visibility set to public once (Packages -> package settings) so
@@ -93,6 +97,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # `inputs.version` is only set on a manual run. Split it so the image
+      # also gets the moving minor tag a real v* push would produce.
+      - name: Derive the minor tag
+        id: minor
+        if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+        env:
+          VERSION: ${{ inputs.version }}
+        run: echo "value=${VERSION%.*}" >> "$GITHUB_OUTPUT"
+
       - name: Tags and labels
         id: meta
         uses: docker/metadata-action@v5
@@ -107,6 +120,7 @@ jobs:
             # A manual run can stamp a version onto an existing build, which is
             # how an image gets re-published after something like a rename.
             type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=raw,value=${{ steps.minor.outputs.value }},enable=${{ steps.minor.outputs.value != '' }}
           labels: |
             org.opencontainers.image.title=Crate
             org.opencontainers.image.description=Terminal music downloader and self-hosted web queue
