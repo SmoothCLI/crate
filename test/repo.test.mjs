@@ -66,6 +66,44 @@ test("a manual publish stamps the version and its moving minor tag", () => {
   );
 });
 
+// The publishing rules are YAML, so nothing in the application can notice them
+// drifting back. This is the one place that can: a push to main runs the tests,
+// and only a release tag may build an image.
+test("a push to main tests but never publishes", () => {
+  const workflow = read(".github/workflows/publish.yml");
+
+  // Tests still run for every commit on main, which is the half worth keeping.
+  assert.match(workflow, /^\s+push:/m, "the workflow no longer triggers on a push");
+  assert.match(workflow, /branches: \[main\]/, "main pushes would no longer run the tests");
+
+  const start = workflow.indexOf("\n  publish:\n");
+  assert.ok(start > 0, "the workflow has no publish job");
+  const publishJob = workflow.slice(start);
+
+  // The gate, not the comments: whatever else changes, this job must refuse to
+  // run unless the ref is a release tag or a run was asked for by hand.
+  const gate = publishJob.match(/^ {4}if: (.+)$/m)?.[1] ?? "";
+  assert.ok(gate, "the publish job has no if: gate");
+  assert.match(
+    gate,
+    /refs\/tags\/v|github\.ref_type == 'tag'/,
+    `the publish job is not gated on a release tag: ${gate}`,
+  );
+  assert.match(gate, /workflow_dispatch/, "a manual run could no longer publish");
+
+  // And the tag list must not recreate a per-commit tag behind the gate's back.
+  assert.doesNotMatch(
+    publishJob,
+    /type=ref,event=branch/,
+    "a branch push would tag an image again",
+  );
+  assert.doesNotMatch(publishJob, /type=sha/, "an image would be tagged per commit again");
+
+  // `latest` names the newest release, so it cannot be enabled unconditionally.
+  const latest = publishJob.match(/^\s*type=raw,value=latest,(enable=.*)$/m)?.[1] ?? "";
+  assert.match(latest, /github\.ref_type == 'tag'/, "`latest` would move without a release");
+});
+
 test("compose and the README agree on the repository and image", () => {
   const readme = read("README.md");
   assert.match(
