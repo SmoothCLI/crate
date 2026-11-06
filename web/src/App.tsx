@@ -24,6 +24,7 @@ import {
   GridIcon,
   KeyIcon,
   SignOutIcon,
+  SparkleIcon,
   UsersIcon,
 } from "./components/Icons";
 
@@ -133,6 +134,8 @@ export default function App() {
   const [role, setRole] = useState<Role | null>(null);
   // Two sources: /api/me answers before sign-in, Settings keeps it current.
   const [siteName, setSiteName] = useState("");
+  // The release and its source, from /api/me: a quiet line in the footer.
+  const [project, setProject] = useState<{ version: string; repo: string } | null>(null);
   const [contact, setContact] = useState("");
   const [guestEnabled, setGuestEnabled] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
@@ -262,6 +265,7 @@ export default function App() {
         if (!alive) return;
         setGuestEnabled(res.guestEnabled);
         setSiteName(res.siteName);
+        setProject({ version: res.version, repo: res.repo });
         setContact(res.contact);
         setStats(res.stats);
         if (res.authed && res.role) {
@@ -1066,6 +1070,36 @@ export default function App() {
           </section>
         )}
 
+        {/* The one piece of news the owner cannot get from this page: a newer
+            release is out. Quiet, like the guest note, and gone as soon as the
+            image is updated. */}
+        {role === "owner" && settings?.update?.available && (
+          <section
+            className="card flex items-start gap-3 px-4 py-3"
+            role="status"
+            aria-label="Update available"
+          >
+            <span className="mt-0.5 shrink-0" style={{ color: "var(--ink-3)" }}>
+              <SparkleIcon size={16} />
+            </span>
+            <p className="min-w-0 text-[12.5px] leading-relaxed" style={{ color: "var(--ink-2)" }}>
+              <span className="font-medium" style={{ color: "var(--ink)" }}>
+                Crate {settings.update.latest} is out.
+              </span>{" "}
+              This instance runs {settings.update.current}.{" "}
+              <a
+                className="underline underline-offset-2"
+                href={settings.update.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Release notes
+              </a>{" "}
+              · update with <span className="mono">docker compose pull</span>.
+            </p>
+          </section>
+        )}
+
         {role === "owner" && (
           <CookiesDialog
             open={cookiesOpen}
@@ -1112,6 +1146,25 @@ export default function App() {
               Finished files can also be pulled through the browser with ↓.
             </>
           )}
+
+          {/* Provenance rather than decoration: which release this page is,
+              and the one link to its source. */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-2">
+            <span className="mono">{project?.version ? `Crate v${project.version}` : "Crate"}</span>
+            {project?.repo && (
+              <>
+                <span aria-hidden="true">·</span>
+                <a
+                  className="underline underline-offset-2"
+                  href={project.repo}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {project.repo.replace(/^https?:\/\//, "")}
+                </a>
+              </>
+            )}
+          </div>
         </footer>
       </main>
 

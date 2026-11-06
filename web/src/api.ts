@@ -44,6 +44,10 @@ export const api = {
       guestEnabled: boolean;
       setupNeeded: boolean;
       siteName: string;
+      // The release this UI is part of and where its source lives, shown in
+      // the footer under the queue.
+      version: string;
+      repo: string;
       contact: string;
       stats: GuestTally;
     }>("/api/me"),

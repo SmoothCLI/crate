@@ -151,6 +151,16 @@ export type GuestProfile = {
   art: boolean;
 };
 
+// Owner-only: the last background check of the project's releases.
+export type UpdateInfo = {
+  current: string;
+  latest: string;
+  // The release page, or the releases list when the check had no answer yet.
+  url: string;
+  available: boolean;
+  checkedAt: number;
+};
+
 export type Settings = {
   musicDir: string;
   lufs: number;
@@ -181,6 +191,8 @@ export type Settings = {
   // The look of /admin, kept on the server instead of in this browser's
   // cookies: one choice, every device.
   adminLook: AdminLook;
+  // Owner-only: a newer release, when the last check found one.
+  update?: UpdateInfo;
 };
 
 // A stored cookie jar, described without its contents: how many sites it

@@ -6,6 +6,16 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The queue footer now names the running release and links to the project
+  source, read from the script the server drives instead of duplicated in the
+  UI. `GET /api/me` carries the version and repository URL.
+- The owner is told when a newer release is published: the server checks the
+  project's releases in the background every six hours and `/api/settings`
+  carries the result, which the queue renders as a one-line hint with a link to
+  the release notes. Guests never receive the field.
+
 ## [3.1.1] - 2026-11-06
 
 A maintenance release: the server and the UI toolchain move to their current

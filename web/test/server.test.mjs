@@ -299,6 +299,9 @@ test("identity is public, the username is not", async () => {
   assert.equal(me.siteName, "Jukebox");
   assert.equal(me.contact, "hello@example.com");
   assert.equal("username" in me, false);
+  // The footer's provenance line: a named release and a link to its source.
+  assert.equal(me.repo, "https://github.com/SmoothCLI/crate");
+  assert.ok(me.version.length > 0);
 
   const owner = await call("/api/login", {
     method: "POST",
@@ -313,6 +316,12 @@ test("identity is public, the username is not", async () => {
   const guestSettings = await json(await call("/api/settings", { cookie: guestCookie }));
   assert.equal(guestSettings.username, "");
   assert.equal(guestSettings.canEdit, false);
+
+  // The update hint is the owner's: a guest gets no release check at all.
+  assert.equal(settings.update.current, me.version);
+  assert.equal(typeof settings.update.available, "boolean");
+  assert.match(settings.update.url, /github\.com\/SmoothCLI\/crate\/releases/);
+  assert.equal("update" in guestSettings, false);
 });
 
 test("turning guest access off ends guest sessions, not just new ones", async () => {

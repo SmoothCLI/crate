@@ -20,6 +20,80 @@ const BIN = process.env.AUDIODL_BIN || path.resolve(WEB_ROOT, "..", "dlAudio.sh"
 const PORT = Number(process.env.AUDIODL_PORT || 8080);
 const HOST = process.env.AUDIODL_HOST || "0.0.0.0";
 
+// The release this UI belongs to, and where it comes from. The script and the
+// web UI ship together, and the script is where the version is stamped, so it
+// is read from there once at boot instead of being kept in a second place that
+// could drift. A missing or unreadable script is not fatal: the page just says
+// "dev" instead of naming a release.
+const PROJECT_URL = "https://github.com/SmoothCLI/crate";
+const VERSION = (() => {
+  try {
+    const stamp = fs.readFileSync(BIN, "utf8").match(/^VERSION="([^"]+)"/m);
+    if (stamp) return stamp[1];
+  } catch {
+    /* not a checkout: leave the version unnamed */
+  }
+  return "dev";
+})();
+
+// Whether a newer Crate has been published. The answer is fetched in the
+// background, at most every few hours, so an instance without outbound access
+// or a slow GitHub never delays a page: the settings route only reads the last
+// answer. Unauthenticated GitHub API calls are rate-limited generously enough
+// for one every six hours.
+const RELEASES_URL = `${PROJECT_URL}/releases`;
+const UPDATE_EVERY = 6 * 60 * 60 * 1000;
+const releaseCheck = { latest: "", url: "", at: 0, checking: false };
+
+// Numeric on purpose: a string compare puts 3.10 below 3.9. A leading "v" and
+// anything after the numbers are ignored, so "v3.2.0" and "3.2.0-beta" both
+// read as 3.2.0.
+function versionParts(value) {
+  return String(value || "")
+    .replace(/^v/i, "")
+    .split(/[.+-]/)
+    .map((part) => (/^\d+$/.test(part) ? Number(part) : 0));
+}
+
+function isNewer(candidate, current) {
+  const left = versionParts(candidate);
+  const right = versionParts(current);
+  for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
+    const a = left[i] ?? 0;
+    const b = right[i] ?? 0;
+    if (a !== b) return a > b;
+  }
+  return false;
+}
+
+async function checkRelease() {
+  if (releaseCheck.checking) return;
+  releaseCheck.checking = true;
+  const controller = new AbortController();
+  // Unref'd: a check that never answers must not hold the process open, so the
+  // container still stops when it is told to and the tests still exit.
+  const timer = setTimeout(() => controller.abort(), 8000);
+  timer.unref();
+  try {
+    const res = await fetch("https://api.github.com/repos/SmoothCLI/crate/releases/latest", {
+      headers: { accept: "application/vnd.github+json", "user-agent": `crate/${VERSION}` },
+      signal: controller.signal,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const tag = String(data.tag_name || "").trim();
+      releaseCheck.latest = tag.replace(/^v/i, "");
+      releaseCheck.url = String(data.html_url || "") || RELEASES_URL;
+    }
+  } catch {
+    // Offline, rate-limited or GitHub is down: keep the previous answer.
+  } finally {
+    clearTimeout(timer);
+    releaseCheck.checking = false;
+    releaseCheck.at = Date.now();
+  }
+}
+
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(path.join(DATA_DIR, "sessions"), { recursive: true });
 
@@ -1204,6 +1278,10 @@ app.get("/api/me", (req, res) => {
     guestEnabled,
     setupNeeded,
     siteName: settings.siteName,
+    // The release and its source, for the quiet line under the queue. Both are
+    // public and say nothing about this instance.
+    version: VERSION,
+    repo: PROJECT_URL,
     // What the contact page may show; the owner's username stays private.
     contact: settings.contact,
     // Aggregate guest activity for the counter under the queue. Counts guest
@@ -1556,6 +1634,18 @@ app.get("/api/settings", (req, res) => {
     guestQuotaUsed:
       req.auth.role === "guest" ? quotaUsed(sessions.get(req.auth.token)?.guestId) : 0,
     twoFactor: Boolean(settings.totpEnabled),
+    // Owner-only: the newer release the background check saw, if any. There is
+    // nothing for a guest to upgrade, so they never receive the field.
+    update:
+      req.auth.role === "owner"
+        ? {
+            current: VERSION,
+            latest: releaseCheck.latest,
+            url: releaseCheck.url || RELEASES_URL,
+            available: Boolean(releaseCheck.latest) && isNewer(releaseCheck.latest, VERSION),
+            checkedAt: releaseCheck.at,
+          }
+        : undefined,
     // The look of /admin, which is stored here rather than in a cookie. It is
     // no secret: only colours, and the page that shows it is owner-only.
     adminLook: adminLook(),
@@ -4184,6 +4274,10 @@ if (fs.existsSync(DIST)) {
 app.listen(PORT, HOST, () => {
   // Honour the queue that survived the restart now that the server is up.
   pump();
+  // The first release check starts with the server, so the hint is already
+  // there when the owner's page loads; after that it refreshes on its own.
+  void checkRelease();
+  setInterval(checkRelease, UPDATE_EVERY).unref();
   console.log(`[audiodl] http://${HOST}:${PORT}  library=${settings.musicDir}`);
   console.log(`[audiodl] binary=${BIN}`);
   console.log(
