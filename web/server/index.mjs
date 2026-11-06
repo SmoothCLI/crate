@@ -1154,7 +1154,12 @@ function coverExtension(buf) {
 
 function artForScript(value) {
   const art = String(value || "").trim();
-  return COVER_PATH.test(art) ? `http://${SELF_HOST}:${PORT}${art}` : art;
+  if (COVER_PATH.test(art)) return `http://${SELF_HOST}:${PORT}${art}`;
+  // A remote image URL only. Anything else - a local path, file://, a data URL
+  // - would be handed to the script to fetch, and the script will happily read
+  // what it is pointed at. Dropping it leaves the source artwork in place.
+  if (/^https?:\/\//i.test(art) && art.length <= 2000) return art;
+  return "";
 }
 
 // Covers only have to outlive the job that references them, so a week is
@@ -1354,8 +1359,8 @@ app.post("/api/setup", async (req, res) => {
     return;
   }
   const password = typeof req.body?.password === "string" ? req.body.password : "";
-  if (password.length < 8) {
-    res.status(400).json({ error: "Use at least 8 characters." });
+  if (password.length < 10) {
+    res.status(400).json({ error: "Use at least 10 characters." });
     return;
   }
   if (password.length > 200) {
@@ -1369,6 +1374,12 @@ app.post("/api/setup", async (req, res) => {
   }
   const siteName = cleanSiteName(req.body?.siteName);
   const contact = cleanContact(req.body?.contact);
+  // The first run is also the natural moment to decide who may use the
+  // instance. Left out, the existing default (on) is kept.
+  if (typeof req.body?.guestEnabled === "boolean") {
+    guestEnabled = req.body.guestEnabled;
+    settings.guestEnabled = guestEnabled;
+  }
 
   setupLock = true;
   try {
@@ -1858,7 +1869,7 @@ app.put("/api/settings", async (req, res) => {
   if (Number.isInteger(body.quality)) settings.quality = Math.min(5, Math.max(1, body.quality));
   if (body.format !== undefined) settings.format = clampFormat(body.format, settings.format);
   if (typeof body.password === "string" && body.password) {
-    if (body.password.length < 8) {
+    if (body.password.length < 10) {
       res.status(400).json({ error: "Use at least 8 characters." });
       return;
     }

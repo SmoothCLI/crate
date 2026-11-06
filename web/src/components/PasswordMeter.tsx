@@ -1,10 +1,11 @@
 // Client-side guidance only: the server's rule is the 8-character minimum, so
 // the meter must never make a password look required when it is not.
+const MIN_LENGTH = 10;
 const LABELS = ["", "Weak", "Fair", "Good", "Strong"];
 const COLORS = ["transparent", "var(--danger)", "#c98a12", "#4b8f5a", "#2f7d4f"];
 
 function strength(value: string): number {
-  if (value.length < 8) return 0;
+  if (value.length < MIN_LENGTH) return 0;
   let points = 0;
   if (value.length >= 12) points += 1;
   if (value.length >= 16) points += 1;
@@ -20,7 +21,7 @@ function strength(value: string): number {
 }
 
 export function PasswordMeter({ value }: { value: string }) {
-  const longEnough = value.length >= 8;
+  const longEnough = value.length >= MIN_LENGTH;
   const level = strength(value);
   const label = !value ? "" : longEnough ? LABELS[level] : "Too short";
   const color = longEnough ? COLORS[level] : "var(--danger)";
@@ -47,7 +48,7 @@ export function PasswordMeter({ value }: { value: string }) {
           <span aria-hidden="true" style={{ color: longEnough ? COLORS[3] : "var(--ink-3)" }}>
             {longEnough ? "✓" : "•"}
           </span>
-          At least 8 characters
+          At least {MIN_LENGTH} characters
         </span>
         <span aria-live="polite" style={{ color }}>
           {label}

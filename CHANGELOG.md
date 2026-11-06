@@ -6,6 +6,18 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The first-run setup is a fuller form: inline field errors, a show/hide password
+  toggle, a 10-character minimum (was 8) and the choice of whether guests may
+  download, made before the instance exists.
+
+### Fixed
+
+- Cover art handed to the downloader now has to be a remote HTTP(S) image or an
+  uploaded cover; a local path or `file://` URL is ignored instead of being
+  passed through to the script.
+
 ## [3.2.0] - 2026-11-06
 
 A minor release: the web UI now names the release it is running, links to the

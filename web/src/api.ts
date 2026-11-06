@@ -53,8 +53,13 @@ export const api = {
     }>("/api/me"),
   setup: () =>
     request<{ needed: boolean; siteName: string; username: string; guestEnabled: boolean }>("/api/setup"),
-  finishSetup: (body: { siteName: string; username: string; contact: string; password: string }) =>
-    request<{ ok: true; role: Role }>("/api/setup", { method: "POST", body: JSON.stringify(body) }),
+  finishSetup: (body: {
+    siteName: string;
+    username: string;
+    contact: string;
+    password: string;
+    guestEnabled: boolean;
+  }) => request<{ ok: true; role: Role }>("/api/setup", { method: "POST", body: JSON.stringify(body) }),
   // `remember` is how many days the device stays signed in, or "forever";
   // null keeps the cookie to this browser window only.
   login: (username: string, password: string, remember: number | "forever" | null) =>

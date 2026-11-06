@@ -269,6 +269,13 @@ test("first run setup stores name, contact and username", async () => {
   assert.equal(initial.needed, true);
   assert.equal(initial.siteName, "Crate");
 
+  const short = await call("/api/setup", {
+    method: "POST",
+    body: { password: "123456789" },
+  });
+  assert.equal(short.status, 400);
+  assert.match((await json(short)).error, /at least 10/);
+
   const bad = await call("/api/setup", {
     method: "POST",
     body: { siteName: "X", username: "no spaces", password: "testpassword" },
