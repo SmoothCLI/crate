@@ -1988,3 +1988,90 @@ test("an uploaded cover is served back and reaches the script as a URL", async (
   const rows = JSON.parse(fs.readFileSync(meta, "utf8"));
   assert.equal(rows["1"].art, `http://127.0.0.1:${PORT}${url}`);
 });
+
+// /library reads the folder layout rather than tags, so these tests use the
+// seeded Lib Artist/Lib Album/Known Song.m4a on disk.
+test("the library browser lists artists, albums and tracks from the folder", async () => {
+  const ownerCookie = cookieOf(
+    await call("/api/login", {
+      method: "POST",
+      body: { username: "owner", password: "testpassword" },
+    }),
+  );
+
+  const all = await json(await call("/api/library/browse", { cookie: ownerCookie }));
+  assert.equal(all.root, path.join(DATA, "music"));
+  const artist = all.artists.find((entry) => entry.name === "Lib Artist");
+  assert.ok(artist, "the seeded artist is listed");
+  assert.ok(artist.albums >= 1);
+
+  const one = await json(
+    await call(`/api/library/browse?artist=${encodeURIComponent("Lib Artist")}`, {
+      cookie: ownerCookie,
+    }),
+  );
+  assert.ok(one.albums.some((entry) => entry.name === "Lib Album"));
+  const track = one.tracks.find((entry) => entry.title === "Known Song");
+  assert.ok(track, "the file is listed by its name, without the extension");
+  assert.equal(track.album, "Lib Album");
+  assert.equal(track.track, null, "a file without a number stays unnumbered");
+
+  // Every word has to match, and case does not matter.
+  const search = await json(
+    await call("/api/library/browse?q=LIB%20known", { cookie: ownerCookie }),
+  );
+  assert.equal(search.tracks.length, 1);
+  assert.equal(search.tracks[0].title, "Known Song");
+  assert.equal(search.matched, 1);
+
+  // The library is the owner's, tags or no tags.
+  const guestCookie = cookieOf(await call("/api/guest", { method: "POST" }));
+  assert.equal((await call("/api/library/browse", { cookie: guestCookie })).status, 403);
+});
+
+test("library playback serves ranges and refuses anything outside the folder", async () => {
+  const ownerCookie = cookieOf(
+    await call("/api/login", {
+      method: "POST",
+      body: { username: "owner", password: "testpassword" },
+    }),
+  );
+  const file = path.join(DATA, "music", "Lib Artist", "Lib Album", "Known Song.m4a");
+  const encoded = encodeURIComponent(file);
+
+  const full = await fetch(`${BASE}/api/library/track?path=${encoded}`, {
+    headers: { cookie: ownerCookie },
+  });
+  assert.equal(full.status, 200);
+  assert.equal(full.headers.get("accept-ranges"), "bytes");
+  assert.equal(full.headers.get("content-type"), "audio/mp4");
+  assert.equal(await full.text(), "x");
+
+  const part = await fetch(`${BASE}/api/library/track?path=${encoded}`, {
+    headers: { cookie: ownerCookie, range: "bytes=0-0" },
+  });
+  assert.equal(part.status, 206);
+  assert.equal(part.headers.get("content-range"), `bytes 0-0/${fs.statSync(file).size}`);
+  assert.equal(await part.text(), "x");
+
+  const beyond = await fetch(`${BASE}/api/library/track?path=${encoded}`, {
+    headers: { cookie: ownerCookie, range: "bytes=99-120" },
+  });
+  assert.equal(beyond.status, 416, "a range past the end is refused");
+
+  // Outside the library, and a non-audio file inside it: neither is served.
+  for (const outside of ["/etc/hostname", path.join(DATA, "music", "notes.txt")]) {
+    assert.equal(
+      (await call(`/api/library/track?path=${encodeURIComponent(outside)}`, {
+        cookie: ownerCookie,
+      })).status,
+      404,
+    );
+  }
+
+  const guestCookie = cookieOf(await call("/api/guest", { method: "POST" }));
+  assert.equal(
+    (await call(`/api/library/track?path=${encoded}`, { cookie: guestCookie })).status,
+    403,
+  );
+});

@@ -12,6 +12,10 @@ All notable changes to Crate are documented here. The format follows
   `docker compose --profile auto-update up -d`, which recreates the container
   when a new `latest` image is published. The README explains the pull-based
   update as well.
+- `/library`: browse artists, albums and tracks, search them, and play files in
+  place. It reads the folder layout instead of tags, so the listing matches what
+  is on disk, and playback is range-served so a phone does not pull a whole
+  FLAC to hear ten seconds.
 
 ## [3.3.0] - 2026-11-06
 

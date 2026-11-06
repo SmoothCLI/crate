@@ -531,6 +531,35 @@ disappeared. **Clean up…** removes the empty folders, deepest first, and only
   Deleting a file drops it from the cache; the empty folder it leaves behind is
   what the health screen cleans up.
 
+## Browsing the library
+
+`/library` is the owner's view of what the downloads actually produced - the
+folder itself, not a list of jobs. The header carries the disc icon on the queue
+page; a guest who opens the address is sent back to the queue, and the API
+answers 403 for every request behind it.
+
+The page reads the layout rather than the tags. `ARTIST/ALBUM/[NN - ]TITLE.ext`
+is what the downloader writes, so a walk is enough to name, group and size every
+file, and a listing can never disagree with the paths on disk. Three levels are
+walked (so an artist and its albums), the walk stops at 50,000 files and says so,
+and it is cached for 20 seconds - searching fires a request per pause in typing
+and must not re-stat a large library each time.
+
+- **Search** matches any words against `artist album title` together, so `aphex
+  ambient` narrows the list rather than widening it, and at most 200 rows come
+  back with the true match count beside them.
+- **Artists and albums** are the folder names, sorted by name; a file that sits
+  directly in the library root or in an artist folder is filed under *Unknown
+  album*, and one outside the two-level layout under *Unknown artist*, so
+  nothing is hidden because of where it landed.
+- **Playback** streams the file with HTTP `Range`, so the browser can scrub and
+  starts before the whole file is read. Only the owner may ask for it, only audio
+extensions are served, and the resolved path must sit inside the music folder -
+  a path outside it is a 404, not a file.
+
+The header's **Health** link jumps to `/admin#library`, where the structural
+findings and the duplicate scanner live.
+
 ## Working in the UI
 
 - **Several links at once** - pasting or dropping a block of links inspects the

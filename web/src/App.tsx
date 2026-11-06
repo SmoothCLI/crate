@@ -3,6 +3,7 @@ import { api } from "./api";
 import type { Draft, GuestTally, Job, Preview, Role, Row, Settings, Theme } from "./types";
 import { AdminPage } from "./components/AdminPage";
 import { Dashboard } from "./components/Dashboard";
+import { LibraryPage } from "./components/LibraryPage";
 import { Composer } from "./components/Composer";
 import { ContactPage } from "./components/ContactPage";
 import { ConfirmOverwrite } from "./components/ConfirmOverwrite";
@@ -20,6 +21,7 @@ import {
   AlertIcon,
   BellIcon,
   CloseIcon,
+  DiscIcon,
   GearIcon,
   GridIcon,
   KeyIcon,
@@ -130,6 +132,7 @@ export default function App() {
   const atAdmin = path === "/admin";
   const atDashboard = path === "/dashboard";
   const atContact = path === "/contact";
+  const atLibrary = path === "/library";
   const [setup, setSetup] = useState<"checking" | "needed" | "done">("checking");
   const [role, setRole] = useState<Role | null>(null);
   // Two sources: /api/me answers before sign-in, Settings keeps it current.
@@ -274,7 +277,7 @@ export default function App() {
         }
         // /admin is the owner's page: a visitor without a session gets the
         // sign-in form, not a silent guest session and a bounce to the queue.
-        if (atAdmin || atDashboard) {
+        if (atAdmin || atDashboard || atLibrary) {
           setShowLogin(true);
           return;
         }
@@ -295,13 +298,15 @@ export default function App() {
     return () => {
       alive = false;
     };
-  }, [setup, atAdmin, atDashboard]);
+  }, [setup, atAdmin, atDashboard, atLibrary]);
 
   // /admin and /dashboard are the owner's pages; a guest who types one is sent
   // back to the queue.
   useEffect(() => {
-    if (role && role !== "owner" && (atAdmin || atDashboard)) window.location.replace("/");
-  }, [role, atAdmin, atDashboard]);
+    if (role && role !== "owner" && (atAdmin || atDashboard || atLibrary)) {
+      window.location.replace("/");
+    }
+  }, [role, atAdmin, atDashboard, atLibrary]);
 
   // The guest tally only changes when a download settles, so that is the only
   // time worth asking for it again.
@@ -804,7 +809,7 @@ export default function App() {
     return (
       <Login
         siteName={siteName}
-        guestEnabled={!atAdmin && !atDashboard && guestEnabled && role === null}
+        guestEnabled={!atAdmin && !atDashboard && !atLibrary && guestEnabled && role === null}
         onAuthed={(next) => {
           setRole(next);
           setShowLogin(false);
@@ -824,6 +829,10 @@ export default function App() {
 
   if (atDashboard) {
     return role === "owner" ? <Dashboard stats={stats} /> : <div className="min-h-dvh" />;
+  }
+
+  if (atLibrary) {
+    return role === "owner" ? <LibraryPage /> : <div className="min-h-dvh" />;
   }
 
   const overwritePaths = (plan?.tracks ?? []).filter((t) => t.exists && t.path).map((t) => t.path);
@@ -886,6 +895,11 @@ export default function App() {
               onChange={setAppearance}
             />
             <EffectsToggle />
+            {role === "owner" && (
+              <a className="btn btn-ghost px-2" href="/library" aria-label="Library" title="Library">
+                <DiscIcon />
+              </a>
+            )}
             {role === "owner" && (
               // Stays at every width: on a phone it is the only way through to
               // the overview page.

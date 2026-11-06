@@ -81,6 +81,7 @@ Prefer to run without Docker? See [From a checkout](#from-a-checkout).
 | **Real metadata** | MusicBrainz matching, artist/album/title/track/date, multi-artist tags, genre suggestions from the library. |
 | **Cover art** | Fetched, resized and embedded — or uploaded/dropped in the web UI, per album or per track. |
 | **A tidy library** | `ARTIST/ALBUM/[NN - ]TITLE.format`, existing files detected, resumable sessions, duplicate fingerprints. |
+| **A library you can open** | `/library` browses artists, albums and tracks, searches them and plays files in place — no file manager needed. |
 | **A queue that survives** | Live stage progress over SSE, retry after a crash, per-host concurrency caps, optional webhook. |
 | **Guests, safely** | Guest downloads are encoded on the server and streamed to the browser; nothing lands in the library. |
 | **Owner tools** | `/admin` for formats, quota, cookies for signed-in sources, diagnostics, 2FA and backups. |

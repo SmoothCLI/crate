@@ -286,4 +286,36 @@ export type Diagnostics = {
   disk: { freeBytes: number; totalBytes: number } | null;
 };
 
+// One file in the owner's library, described from its path rather than by
+// reading its tags: the downloader already writes ARTIST/ALBUM/[NN - ]TITLE.
+export type LibraryTrack = {
+  path: string;
+  name: string;
+  artist: string;
+  album: string;
+  title: string;
+  track: number | null;
+  ext: string;
+  bytes: number;
+  mtime: number;
+};
+
+export type LibraryArtist = { name: string; tracks: number; bytes: number; albums: number };
+
+export type LibraryAlbum = { name: string; artist: string; tracks: number; bytes: number };
+
+// One endpoint answers all three views: the artist list always, the albums and
+// tracks of the chosen artist, or a flat result list when `q` is set.
+export type LibraryBrowse = {
+  root: string;
+  scannedAt: number;
+  truncated: boolean;
+  total: number;
+  q: string;
+  matched: number;
+  artists: LibraryArtist[];
+  albums: LibraryAlbum[];
+  tracks: LibraryTrack[];
+};
+
 export type Theme = "auto" | "light" | "dark";

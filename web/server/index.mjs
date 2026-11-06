@@ -2132,6 +2132,262 @@ app.get("/api/library", (req, res) => {
   });
 });
 
+// --------------------------------------------------------------- library page
+//
+// The browser reads the folder layout instead of the tags. ARTIST/ALBUM/[NN - ]TITLE.ext
+// is what the downloader writes and normalises, so a walk is enough to list it,
+// and reading a tag per file would be an order of magnitude slower on a real
+// library while still describing paths that may not exist. The walk is cached
+// for a few seconds because searching fires a request per pause in typing.
+
+const LIBRARY_MIME = {
+  ".m4a": "audio/mp4",
+  ".mp3": "audio/mpeg",
+  ".flac": "audio/flac",
+  ".opus": "audio/ogg",
+  ".ogg": "audio/ogg",
+  ".oga": "audio/ogg",
+  ".wav": "audio/wav",
+};
+
+const BROWSE_TTL = 20_000;
+const BROWSE_MAX_FILES = 50_000;
+const BROWSE_MAX_RESULTS = 200;
+
+let browseCache = { at: 0, root: "", items: [], truncated: false };
+
+function browseEntry(full, artist, album, name, stat) {
+  const base = path.basename(name, path.extname(name));
+  // The same `NN - ` prefix the script writes; a file without one is sorted
+  // last rather than guessed at.
+  const numbered = base.match(/^(\d{1,3})\s*[-.]\s+(.+)$/);
+  return {
+    path: full,
+    name,
+    artist,
+    album,
+    title: (numbered ? numbered[2] : base).trim(),
+    track: numbered ? Number(numbered[1]) : null,
+    ext: path.extname(name).slice(1).toLowerCase(),
+    bytes: stat ? stat.size : 0,
+    mtime: stat ? Math.round(stat.mtimeMs) : 0,
+  };
+}
+
+function libraryBrowseIndex() {
+  const root = settings.musicDir;
+  if (browseCache.root === root && Date.now() - browseCache.at < BROWSE_TTL) return browseCache;
+
+  const items = [];
+  let truncated = false;
+  const walk = (dir, depth, artist, album) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (items.length >= BROWSE_MAX_FILES) {
+        truncated = true;
+        return;
+      }
+      if (entry.name.startsWith(".")) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (depth < 2) {
+          walk(full, depth + 1, depth === 0 ? entry.name : artist, depth === 1 ? entry.name : album);
+        }
+        continue;
+      }
+      if (!AUDIO_EXT.has(path.extname(entry.name).toLowerCase())) continue;
+      let stat = null;
+      try {
+        stat = fs.statSync(full);
+      } catch {
+        /* a file that vanished mid-walk still belongs in the list */
+      }
+      items.push(browseEntry(full, artist, album, entry.name, stat));
+    }
+  };
+  walk(root, 0, "", "");
+
+  browseCache = { at: Date.now(), root, items, truncated };
+  return browseCache;
+}
+
+// `Unknown artist` is a label, not a folder name: comparing the label keeps a
+// loose file at the root browseable instead of invisible under a fake artist.
+const browseArtist = (item) => item.artist || "Unknown artist";
+const browseAlbum = (item) => item.album || "Unknown album";
+
+function sortTracks(tracks) {
+  return tracks.sort((a, b) => {
+    const left = a.track ?? Number.MAX_SAFE_INTEGER;
+    const right = b.track ?? Number.MAX_SAFE_INTEGER;
+    return left === right ? a.title.localeCompare(b.title) : left - right;
+  });
+}
+
+app.get("/api/library/browse", (req, res) => {
+  if (req.auth.role !== "owner") {
+    res.status(403).json({ error: "Only the owner can browse the library." });
+    return;
+  }
+  const index = libraryBrowseIndex();
+  const q = String(req.query.q || "").trim().slice(0, 120);
+  const artist = String(req.query.artist || "").trim().slice(0, 240);
+  const album = String(req.query.album || "").trim().slice(0, 240);
+  const total = index.items.length;
+  const shell = {
+    root: index.root,
+    scannedAt: index.at,
+    truncated: index.truncated,
+    total,
+    q,
+    matched: total,
+    artists: [],
+    albums: [],
+    tracks: [],
+  };
+
+  if (q) {
+    // Every word has to appear somewhere in "artist album title", so a second
+    // word narrows the result instead of widening it.
+    const terms = q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
+    const found = [];
+    let matched = 0;
+    for (const item of index.items) {
+      const hay = `${browseArtist(item)} ${browseAlbum(item)} ${item.title}`.toLowerCase();
+      if (!terms.every((term) => hay.includes(term))) continue;
+      matched += 1;
+      if (found.length < BROWSE_MAX_RESULTS) found.push(item);
+    }
+    res.json({ ...shell, matched, tracks: sortTracks(found) });
+    return;
+  }
+
+  const artists = new Map();
+  for (const item of index.items) {
+    const name = browseArtist(item);
+    let bucket = artists.get(name);
+    if (!bucket) {
+      bucket = { name, tracks: 0, bytes: 0, albums: new Map() };
+      artists.set(name, bucket);
+    }
+    bucket.tracks += 1;
+    bucket.bytes += item.bytes;
+    const albumName = browseAlbum(item);
+    let entry = bucket.albums.get(albumName);
+    if (!entry) {
+      entry = { name: albumName, artist: name, tracks: 0, bytes: 0 };
+      bucket.albums.set(albumName, entry);
+    }
+    entry.tracks += 1;
+    entry.bytes += item.bytes;
+  }
+
+  const current = artist ? artists.get(artist) : null;
+  res.json({
+    ...shell,
+    artists: [...artists.values()]
+      .map((bucket) => ({
+        name: bucket.name,
+        tracks: bucket.tracks,
+        bytes: bucket.bytes,
+        albums: bucket.albums.size,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    albums: current ? [...current.albums.values()].sort((a, b) => a.name.localeCompare(b.name)) : [],
+    tracks: current
+      ? sortTracks(
+          index.items.filter(
+            (item) =>
+              browseArtist(item) === artist && (!album || browseAlbum(item) === album),
+          ),
+        )
+      : [],
+  });
+});
+
+// The owner's own files, played in place. Range support is what lets the browser
+// scrub and start playing before the whole file has been read, and it means a
+// phone never pulls a 40 MB FLAC to hear the first ten seconds.
+app.get("/api/library/track", (req, res) => {
+  if (req.auth.role !== "owner") {
+    res.status(403).json({ error: "Only the owner can play the library." });
+    return;
+  }
+  const raw = String(req.query.path || "");
+  if (!raw) {
+    res.status(400).json({ error: "No path given." });
+    return;
+  }
+  const file = path.resolve(raw);
+  if (!isInside(file, settings.musicDir) || !AUDIO_EXT.has(path.extname(file).toLowerCase())) {
+    res.status(404).json({ error: "That file is not in the library." });
+    return;
+  }
+  let stat;
+  try {
+    stat = fs.statSync(file);
+  } catch {
+    res.status(404).json({ error: "That file is not in the library." });
+    return;
+  }
+  if (!stat.isFile()) {
+    res.status(404).json({ error: "That file is not in the library." });
+    return;
+  }
+
+  const size = stat.size;
+  res.set({
+    "Content-Type": LIBRARY_MIME[path.extname(file).toLowerCase()] || "application/octet-stream",
+    "Accept-Ranges": "bytes",
+    "Cache-Control": "private, max-age=0, must-revalidate",
+    "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(path.basename(file))}`,
+  });
+
+  let start = 0;
+  let end = size - 1;
+  let partial = false;
+  const range = req.headers.range;
+  if (range) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(String(range).trim());
+    const from = match?.[1] ?? "";
+    const to = match?.[2] ?? "";
+    if (!match || (!from && !to)) {
+      res.status(416).set("Content-Range", `bytes */${size}`).end();
+      return;
+    }
+    if (from) {
+      start = Number(from);
+      if (to) end = Math.min(Number(to), size - 1);
+    } else {
+      // `bytes=-N`: the last N bytes, which is how some players probe a file.
+      start = Math.max(0, size - Number(to));
+    }
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {
+      res.status(416).set("Content-Range", `bytes */${size}`).end();
+      return;
+    }
+    partial = true;
+    res.status(206).set({
+      "Content-Range": `bytes ${start}-${end}/${size}`,
+      "Content-Length": String(end - start + 1),
+    });
+  } else {
+    res.set("Content-Length", String(size));
+  }
+
+  const stream = fs.createReadStream(file, partial ? { start, end } : undefined);
+  stream.on("error", () => {
+    if (!res.headersSent) res.status(500).json({ error: "Could not read that file." });
+    else res.end();
+  });
+  stream.pipe(res);
+});
+
 // ------------------------------------------------------------ library health
 // Structural checks only: they are cheap enough to answer in a request, and
 // every finding names a file or folder the owner can act on. Tag-level checks
