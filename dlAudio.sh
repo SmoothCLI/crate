@@ -18,7 +18,7 @@
 # shellcheck disable=SC2030,SC2031  # playlist tracks intentionally run in subshells
 set -Eeuo pipefail
 
-VERSION="3.2.0"
+VERSION="3.3.0"
 PROG="${0##*/}"
 START_TIME=$SECONDS
 

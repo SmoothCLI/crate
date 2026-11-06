@@ -6,6 +6,26 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-11-06
+
+A web-UI release: update notices are visible and skippable, the first run is a
+proper form, and the image answers a health check. The terminal downloader is
+unchanged.
+
+### Added
+
+- The release hint can be dismissed for one browser, or skipped for good, and
+  the release notes can be read inline; both choices are stored against that
+  release, so the next one still shows.
+- A small badge on the Settings gear while a newer release is available.
+- The admin System tab names the running release, the latest one found, and
+  when the last check ran.
+- `GET /api/health`: a public, path-free JSON summary (version, uptime, queue,
+  library writability and disk) for monitors, now also the image healthcheck.
+- The published image carries SLSA provenance and an SBOM.
+- The README is rewritten around a Docker quick start, and a reverse-proxy
+  guide covers Caddy and nginx for a public instance.
+
 ### Changed
 
 - The first-run setup is a fuller form: inline field errors, a show/hide password
@@ -34,17 +54,6 @@ project source, and tells the owner when a newer Crate has been published.
   one-line hint with a link to the release notes. Guests never receive the
   field, and the browser audit now covers the hint on the queue and the
   overview with a local stand-in for the releases API.
-- The release hint can be dismissed for one browser, or skipped for good, and
-  the release notes can be read inline; both choices are stored against that
-  release, so the next one still shows.
-- A small badge on the Settings gear while a newer release is available.
-- The admin System tab names the running release, the latest one found, and
-  when the last check ran.
-- `GET /api/health`: a public, path-free JSON summary (version, uptime, queue,
-  library writability and disk) for monitors, now also the image healthcheck.
-- The published image carries SLSA provenance and an SBOM.
-- The README is rewritten around a Docker quick start, and a reverse-proxy
-  guide covers Caddy and nginx for a public instance.
 
 ## [3.1.1] - 2026-11-06
 
@@ -113,7 +122,8 @@ that drives it.
   and the compose files. The downloader keeps its `dlAudio.sh` filename and the
   `AUDIODL_*` environment variables, which the server and the tests refer to.
 
-[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.2.0...HEAD
+[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.3.0...HEAD
+[3.3.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.3.0
 [3.2.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.2.0
 [3.1.1]: https://github.com/SmoothCLI/crate/releases/tag/v3.1.1
 [3.1.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.1.0
