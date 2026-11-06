@@ -18,6 +18,10 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Also tag the image with this version, e.g. 3.1.0"
+        required: false
 
 concurrency:
   group: publish-${{ github.ref }}
@@ -100,6 +104,9 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
+            # A manual run can stamp a version onto an existing build, which is
+            # how an image gets re-published after something like a rename.
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
           labels: |
             org.opencontainers.image.title=Crate
             org.opencontainers.image.description=Terminal music downloader and self-hosted web queue
