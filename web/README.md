@@ -571,7 +571,10 @@ extensions are served, and the resolved path must sit inside the music folder -
   cover, previous/play/next, a seek slider with the elapsed and total time, a
   mute button and a volume slider, all driving a hidden `<audio>`. The native
   controls change height and shade in every browser and cannot show the album
-  art, which is most of what the bar is for.
+  art, which is most of what the bar is for. Volume and mute are remembered per
+  browser (`localStorage`, like the palette), and the bar listens for Space to
+  play or pause and the arrow keys to skip - except while the cursor is in a
+  text field, where Space is just a space.
 - **The queue** is whatever list play was pressed on: next, previous and the end
   of a track move through it, so an album plays straight through. Searching on
   while it plays does not cut it off - the queue is a snapshot of the list from

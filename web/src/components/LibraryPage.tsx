@@ -13,6 +13,39 @@ import {
   VolumeIcon,
 } from "./Icons";
 
+// Volume is a browser's taste, like the palette: it belongs to the device, not
+// the session, and to the player, not the server. localStorage is read before
+// the first note, so the bar opens at the level it was left at.
+const VOLUME_KEY = "audiodl-volume";
+const MUTED_KEY = "audiodl-muted";
+
+function storedVolume(): number {
+  try {
+    const value = Number(localStorage.getItem(VOLUME_KEY));
+    if (!Number.isFinite(value)) return 1;
+    return Math.min(1, Math.max(0, value));
+  } catch {
+    // Storage can be refused; the default level is not worth an error.
+    return 1;
+  }
+}
+
+function storedMuted(): boolean {
+  try {
+    return localStorage.getItem(MUTED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function remember(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* a private window that refuses storage still plays */
+  }
+}
+
 const SORTS: { value: LibrarySort; label: string }[] = [
   { value: "track", label: "Album order" },
   { value: "title", label: "Title" },
@@ -43,8 +76,8 @@ export function LibraryPage() {
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [volume, setVolume] = useState(1);
-  const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(storedVolume);
+  const [muted, setMuted] = useState(storedMuted);
   const seq = useRef(0);
   const audio = useRef<HTMLAudioElement>(null);
 
@@ -119,10 +152,50 @@ export function LibraryPage() {
   const changeVolume = (value: number) => {
     setVolume(value);
     setMuted(value === 0);
+    remember(VOLUME_KEY, String(value));
+    remember(MUTED_KEY, value === 0 ? "1" : "0");
     if (!audio.current) return;
     audio.current.volume = value;
     audio.current.muted = value === 0;
   };
+
+  const toggleMute = () => {
+    // Unmuting a slider that was dragged to zero would stay silent, so it comes
+    // back at full volume instead.
+    const nextVolume = muted && volume === 0 ? 1 : volume;
+    const next = !muted;
+    setMuted(next);
+    setVolume(nextVolume);
+    remember(MUTED_KEY, next ? "1" : "0");
+    remember(VOLUME_KEY, String(nextVolume));
+    if (!audio.current) return;
+    audio.current.muted = next;
+    audio.current.volume = nextVolume;
+  };
+
+  // Space and the arrow keys, the way every other player does it. Typing in the
+  // search field has to win, and Space on a focused button already clicks that
+  // button, so both are left alone.
+  useEffect(() => {
+    if (!playing) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (target?.closest("input, select, textarea, [contenteditable='true']")) return;
+      if (event.code === "Space") {
+        if (target?.closest("button, a")) return;
+        event.preventDefault();
+        togglePlay();
+        return;
+      }
+      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+        event.preventDefault();
+        step(event.key === "ArrowRight" ? 1 : -1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [playing, queue.length]);
 
   const startAt = (list: LibraryTrack[], track: LibraryTrack) => {
     const at = list.findIndex((entry) => entry.path === track.path);
@@ -488,11 +561,7 @@ export function LibraryPage() {
               <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
                 <button
                   className="btn btn-ghost btn-icon"
-                  onClick={() => {
-                    const next = !muted;
-                    setMuted(next);
-                    if (audio.current) audio.current.muted = next;
-                  }}
+                  onClick={toggleMute}
                   aria-label={muted ? "Unmute" : "Mute"}
                   title={muted ? "Unmute" : "Mute"}
                 >

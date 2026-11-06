@@ -64,6 +64,8 @@ let releaseServer;
 function seed() {
   fs.mkdirSync(path.join(MUSIC, "Lib Artist", "Lib Album"), { recursive: true });
   fs.writeFileSync(path.join(MUSIC, "Lib Artist", "Lib Album", "01 - Known Song.m4a"), "x".repeat(2048));
+  // A second track, so the player's next/previous actually has somewhere to go.
+  fs.writeFileSync(path.join(MUSIC, "Lib Artist", "Lib Album", "02 - Second Song.m4a"), "x".repeat(2048));
   const now = Date.now();
   fs.writeFileSync(
     path.join(DATA, "jobs.json"),
@@ -568,6 +570,66 @@ test("the library player bar fits a phone and drives a hidden audio element", as
 
   await page.getByRole("button", { name: "Stop playing" }).click();
   await bar.waitFor({ state: "detached" });
+  await context.close();
+});
+
+// Volume is a device taste and the shortcuts are muscle memory: both are worth
+// a browser test, because neither is visible from the component's own state.
+test("the library player keeps volume and takes keyboard shortcuts", async () => {
+  const context = await open({ width: 900, height: 800 });
+  const page = await context.newPage();
+  await login(page);
+
+  await page.goto(`${BASE}/library`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /Lib Artist/ }).first().click();
+  await page.waitForTimeout(600);
+  await page.getByRole("button", { name: "Play Known Song" }).click();
+  const bar = page.locator("[data-player]");
+  await bar.waitFor({ timeout: 5000 });
+
+  // Moving a range input from a test has to go through the setter React
+  // patches, or the component never sees the change.
+  const volume = page.getByRole("slider", { name: "Volume" });
+  await volume.evaluate((el) => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    set.call(el, "0.35");
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.getByRole("button", { name: "Mute" }).click();
+  assert.deepEqual(
+    await page.evaluate(() => ({
+      volume: localStorage.getItem("audiodl-volume"),
+      muted: localStorage.getItem("audiodl-muted"),
+    })),
+    { volume: "0.35", muted: "1" },
+  );
+
+  // The arrows move through the queue the bar was opened with.
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  });
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(300);
+  assert.match(await bar.innerText(), /Second Song/);
+  await page.keyboard.press("ArrowLeft");
+  await page.waitForTimeout(300);
+  assert.match(await bar.innerText(), /Known Song/);
+
+  // Space stays a space while the cursor is in the search field.
+  const search = page.getByPlaceholder("Search titles, artists, albums");
+  await search.click();
+  await page.keyboard.press("Space");
+  assert.equal(await search.inputValue(), " ");
+
+  // Both survive a reload, and the reopened bar shows them.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /Lib Artist/ }).first().click();
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "Play Known Song" }).click();
+  await bar.waitFor({ timeout: 5000 });
+  assert.equal(await page.getByRole("button", { name: "Unmute" }).count(), 1);
+  assert.equal(await page.getByRole("slider", { name: "Volume" }).inputValue(), "0");
+
   await context.close();
 });
 
