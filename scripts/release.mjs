@@ -187,7 +187,8 @@ function main() {
       return "";
     }
   })();
-  const body = section(read("CHANGELOG.md"), version);
+  // `body` is the [Unreleased] text read before the rewrite, which is exactly
+  // what the new section holds now - there is no reason to read it twice.
   const notes = previous
     ? `${body}\n\n**Full changelog**: ${REPO_URL}/compare/${previous}...v${version}`
     : body;
