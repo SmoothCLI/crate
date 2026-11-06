@@ -1,15 +1,16 @@
 name: publish
 
-# Builds the container image and pushes it to the GitHub Container Registry:
+# Builds the container image and pushes it to the GitHub Container Registry.
+# Only a release tag publishes - a push to main runs the tests and stops there,
+# so `latest` can never drift ahead of the newest release:
 #
-#   ghcr.io/smoothcli/crate:latest        every push to main
 #   ghcr.io/smoothcli/crate:1.2.3         tag v1.2.3
 #   ghcr.io/smoothcli/crate:1.2           tag v1.2.3 (moving minor)
-#   ghcr.io/smoothcli/crate:sha-abc1234   every push, immutable
+#   ghcr.io/smoothcli/crate:latest        tag v1.2.3, the newest release
 #
-# A manual run from the Actions tab can also stamp a version onto an existing
-# build (`version`, e.g. 3.1.0); it produces the version tag and its moving
-# minor tag, which is how an image is re-published after a rename.
+# A manual run from the Actions tab stamps a version onto a fresh build
+# (`version`, e.g. 3.1.0) and produces the same three tags, which is how an
+# image is re-published after a rename or a lost build.
 #
 # A pull request runs the tests only; it never pushes an image. Publishing on a
 # tag also needs the repository's default branch to have this workflow, and the
@@ -171,7 +172,9 @@ jobs:
   publish:
     name: publish image
     needs: [test, layout]
-    if: github.event_name != 'pull_request'
+    # A branch push is a test run, not a release: without this gate every commit
+    # on main would move an image tag for a version that was never cut.
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -196,9 +199,8 @@ jobs:
         run: echo "value=${VERSION%.*}" >> "$GITHUB_OUTPUT"
 
       # metadata-action infers the OCI version label from the ref, which on a
-      # manual run is a branch name. Use the stamped version when there is one,
-      # the tag name when this is a tag build, and the action's own value for a
-      # plain branch push.
+      # manual run is a branch name. Use the stamped version when there is one
+      # and the tag name when this is a tag build; the ref name is the fallback.
       - name: Derive the version label
         id: label
         run: |
@@ -214,12 +216,10 @@ jobs:
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=short
-            # `latest` follows the newest release, not the newest commit: a
-            # main push already publishes `main` and an immutable sha tag.
+            # Only a release reaches this step, so `latest` is always the newest
+            # release rather than whatever landed on main last.
             type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
             # A manual run can stamp a version onto an existing build, which is
             # how an image gets re-published after something like a rename.

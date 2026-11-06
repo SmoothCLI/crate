@@ -77,9 +77,11 @@ The checklist below is what the script does, for when it is not the right tool
    git push origin main --follow-tags
    ```
 
-6. **Watch the tag build.** `.github/workflows/publish.yml` publishes
-   `ghcr.io/smoothcli/crate:X.Y.Z`, the moving `X.Y`, and `latest`. Check the run
-   and then confirm the pull works without credentials:
+6. **Watch the tag build.** Only a release tag publishes: a push to `main` runs
+   the tests and builds no image, so `latest` cannot drift ahead of the newest
+   release. The tag produces `ghcr.io/smoothcli/crate:X.Y.Z`, the moving `X.Y`,
+   and `latest`. Check the run and then confirm the pull works without
+   credentials:
 
    ```sh
    docker pull ghcr.io/smoothcli/crate:X.Y.Z
