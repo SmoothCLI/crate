@@ -177,7 +177,20 @@ function main() {
   git("push", "origin", "main", "--follow-tags");
   process.stdout.write(`\nPushed v${version}.\n`);
 
-  const notes = section(read("CHANGELOG.md"), version);
+  // GitHub adds a compare link only when it generates the notes itself, which
+  // it cannot do here: the notes come from the changelog. Without this footer a
+  // reader on the release page has no way to the diff.
+  const previous = (() => {
+    try {
+      return git("describe", "--tags", "--abbrev=0", `v${version}^`);
+    } catch {
+      return "";
+    }
+  })();
+  const body = section(read("CHANGELOG.md"), version);
+  const notes = previous
+    ? `${body}\n\n**Full changelog**: ${REPO_URL}/compare/${previous}...v${version}`
+    : body;
   execFileSync(
     "gh",
     [
