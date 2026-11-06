@@ -543,11 +543,22 @@ is what the downloader writes, so a walk is enough to name, group and size every
 file, and a listing can never disagree with the paths on disk. Three levels are
 walked (so an artist and its albums), the walk stops at 50,000 files and says so,
 and it is cached for 20 seconds - searching fires a request per pause in typing
-and must not re-stat a large library each time.
+and must not re-stat a large library each time. The cache also checks the root
+folder's own mtime, so an artist folder that appeared since the last walk (a
+download landing in a new folder) shows up on the next look instead of up to 20
+seconds later.
 
 - **Search** matches any words against `artist album title` together, so `aphex
   ambient` narrows the list rather than widening it, and at most 200 rows come
   back with the true match count beside them.
+- **Sorting** happens on the server, because the page only ever holds one
+  artist, one album or one page of results: album order (the numeric prefix),
+  title, artist, album, recently added, or largest first.
+- **Covers** come from the album folder - a `cover`, `folder`, `front`, `album`,
+  `albumart` or `artwork` image beside the tracks, or the picture embedded in the
+  first audio file, extracted with ffmpeg and cached under the data folder. That
+  is deliberately not tied to this app's download log, so a file copied into the
+  library by hand still shows its art. A folder with no picture simply has none.
 - **Artists and albums** are the folder names, sorted by name; a file that sits
   directly in the library root or in an artist folder is filed under *Unknown
   album*, and one outside the two-level layout under *Unknown artist*, so
@@ -556,6 +567,10 @@ and must not re-stat a large library each time.
   starts before the whole file is read. Only the owner may ask for it, only audio
 extensions are served, and the resolved path must sit inside the music folder -
   a path outside it is a 404, not a file.
+- **The queue** is whatever list play was pressed on: next, previous and the end
+  of a track move through it, so an album plays straight through. Searching on
+  while it plays does not cut it off - the queue is a snapshot of the list from
+  when it started.
 
 The header's **Health** link jumps to `/admin#library`, where the structural
 findings and the duplicate scanner live.

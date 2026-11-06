@@ -6,6 +6,35 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Covers in `/library`, taken from the album folder rather than from this app's
+  download log: a `cover`/`folder`/`front`/`album`/`artwork` image beside the
+  tracks, or the picture embedded in the first audio file, extracted with ffmpeg
+  and cached under the data folder. A file copied into the library by hand now
+  shows its art too.
+- Sorting in `/library` - album order, title, artist, album, recently added or
+  largest first - applied on the server to the slice the page actually holds.
+- A play-through queue in `/library`: pressing play on a list makes that list
+  the queue, and next, previous and the end of a track move through it, so an
+  album plays straight through instead of one file at a time.
+- `scripts/release.mjs`, with a "One command" section in `RELEASING.md`: the
+  version bump, the changelog heading, the comparison links, the tag and the
+  GitHub release are one command, and it runs `test/repo.test.mjs` before
+  tagging.
+- `npm run demo` in `web/`, which records `assets/demo.gif` from a seeded
+  throwaway instance so the README preview can be rebuilt rather than
+  hand-captured.
+
+### Changed
+
+- The library walk also compares the root folder's mtime, so a download that
+  lands in a new artist folder shows up on the next request instead of up to 20
+  seconds later.
+- The README's web preview is a longer tour: the queue, the overview, the
+  library with covers and playback, and the settings page. The `/library` page
+  is now part of the browser layout audit.
+
 ## [3.3.1] - 2026-11-06
 
 A patch release for a first-run failure: the first review on a fresh install
