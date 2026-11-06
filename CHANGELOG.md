@@ -17,6 +17,15 @@ All notable changes to Crate are documented here. The format follows
   is on disk, and playback is range-served so a phone does not pull a whole
   FLAC to hear ten seconds.
 
+### Fixed
+
+- The first `--inspect` or `--plan` on a fresh state folder failed with
+  `FAILED (exit 1, line 4112): prior="$(index_path "$eid")"`. `index_path`
+  returned 1 for "no entry in the import index", and `set -e` adopted that
+  status from the assignment, so a missing `index.tsv` - every install before
+  its first download - aborted the run. The query now always succeeds; a test
+  covers inspect and plan with no index file.
+
 ## [3.3.0] - 2026-11-06
 
 A web-UI release: update notices are visible and skippable, the first run is a

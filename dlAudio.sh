@@ -856,10 +856,15 @@ get_checkpoint() {
 # id, so re-running a playlist only fetches what is new. The stored path is
 # checked too: a file that was moved or deleted counts as missing again.
 # ============================================================
+# A query, not a command: "no entry" is an answer, so this always returns 0.
+# Callers read it as `prior="$(index_path …)"`, a plain assignment, and under
+# `set -e` the shell adopts the status of the command substitution - returning 1
+# here killed the first --inspect/--plan on a state folder with no index.tsv yet,
+# which is every fresh install (dlAudio.sh:4112).
 index_path() {
   local key="${1:-}"
-  [ -n "$key" ] || return 1
-  [ -s "$INDEX_FILE" ] || return 1
+  [ -n "$key" ] || return 0
+  [ -s "${INDEX_FILE:-}" ] || return 0
   awk -F'\t' -v k="$key" '$1 == k { p = $3 } END { if (p != "") print p }' \
     "$INDEX_FILE" 2>/dev/null || true
 }

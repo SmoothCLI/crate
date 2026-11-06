@@ -342,6 +342,22 @@ test("--plan names the copy that is already in the library", (t) => {
   assert.notEqual(data.tracks[0].path, file);
 });
 
+// Regression: the preview asks the import index about every entry before
+// anything has been imported. A missing index is an answer ("no entry"), not a
+// failure, but `prior="$(index_path …)"` is a plain assignment and `set -e`
+// adopted its status - so the first --inspect on a fresh state folder died.
+test("--inspect and --plan work before the import index exists", (t) => {
+  if (!canTag(t)) return;
+  for (const mode of ["--inspect", "--plan"]) {
+    const h = harness(t);
+    const res = run(h, [mode, "-o", h.music, "--session-dir", path.join(h.dir, `s-${mode.slice(2)}`)]);
+    assert.equal(res.status, 0, `${mode} failed on a fresh state folder:\n${res.stderr}`);
+    const data = JSON.parse(res.stdout.trim().split("\n").filter(Boolean).pop());
+    assert.equal(data.event, mode.slice(2));
+    assert.equal(data.tracks.length, 1);
+  }
+});
+
 test("--cookies reaches every yt-dlp call", (t) => {
   if (!canTag(t)) return;
   const h = harness(t);
