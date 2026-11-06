@@ -6,6 +6,8 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-11-06
+
 ### Added
 
 - A player bar in `/library`: album art, previous/play-pause/next, elapsed and
@@ -215,7 +217,8 @@ that drives it.
   and the compose files. The downloader keeps its `dlAudio.sh` filename and the
   `AUDIODL_*` environment variables, which the server and the tests refer to.
 
-[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.4.0...HEAD
+[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.4.1...HEAD
+[3.4.1]: https://github.com/SmoothCLI/crate/releases/tag/v3.4.1
 [3.4.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.4.0
 [3.3.1]: https://github.com/SmoothCLI/crate/releases/tag/v3.3.1
 [3.3.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.3.0
