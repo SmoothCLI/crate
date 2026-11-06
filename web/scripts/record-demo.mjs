@@ -320,9 +320,10 @@ async function main() {
       "-i",
       video,
       "-vf",
-      // 10 fps: the tour is UI, not motion, so the lower rate costs nothing
-      // visible and takes a third off the README's download.
-      "fps=10,scale=880:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=200:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle",
+      // 2x, then 10 fps: the README captions this tour as 2x speed, and the
+      // holds are generous, so halving the timeline makes the caption true and
+      // halves the frames (and the download) without losing a step.
+      "setpts=0.5*PTS,fps=10,scale=880:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=200:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle",
       "-loop",
       "0",
       OUT,
