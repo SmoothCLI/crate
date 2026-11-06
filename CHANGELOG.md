@@ -6,6 +6,13 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-11-06
+
+A maintenance release: the server and the UI toolchain move to their current
+majors, CI stopped stalling on flaky mirrors, and the project gained the files a
+public repository is expected to carry. Nothing in the downloader changed - the
+library layout, tags and flags are the same as 3.1.0.
+
 ### Added
 
 - Browser layout audit in CI: the Playwright run at 390, 768 and 1440 px now
@@ -23,6 +30,11 @@ All notable changes to Crate are documented here. The format follows
 - The server runs on Express 5.3 instead of 4.22, and the UI typechecks with
   TypeScript 7. Neither changed a call site: the whole server suite passes on
   the new majors.
+- The UI builds with Vite 8 and `@vitejs/plugin-react` 6. The audit still passes
+  at 390, 768 and 1440 px, and the bundle is slightly smaller.
+- The `org.opencontainers.image.version` label now follows the stamped release
+  version, so an image built by a manual publish run no longer reports a branch
+  name.
 
 ### Fixed
 
@@ -61,5 +73,6 @@ that drives it.
   and the compose files. The downloader keeps its `dlAudio.sh` filename and the
   `AUDIODL_*` environment variables, which the server and the tests refer to.
 
-[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.1.1...HEAD
+[3.1.1]: https://github.com/SmoothCLI/crate/releases/tag/v3.1.1
 [3.1.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.1.0
