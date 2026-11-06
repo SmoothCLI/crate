@@ -386,6 +386,14 @@ Suggestions and bug reports are welcome through GitHub issues.
 
 ---
 
+## Security
+
+Found a way to bypass the owner password, reach outside the library, or expose
+another session? Report it privately as described in [`SECURITY.md`](SECURITY.md)
+rather than opening an issue.
+
+---
+
 ## Changelog
 
 Every release is documented in [`CHANGELOG.md`](CHANGELOG.md).
