@@ -48,7 +48,16 @@ jobs:
       # The script tests need ffmpeg/ffprobe (a generated tone is encoded and
       # measured) and jq; the runner already ships jq.
       - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+        # Some runner images already ship ffmpeg/ffprobe. When apt is needed,
+        # a hung mirror should fail the step instead of stalling the job for
+        # the whole workflow timeout.
+        run: |
+          if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
+            ffmpeg -version | head -1
+            exit 0
+          fi
+          sudo timeout 300 apt-get update
+          sudo timeout 300 apt-get install -y --no-install-recommends ffmpeg
 
       - name: Downloader tests
         run: node --test test/*.test.mjs
