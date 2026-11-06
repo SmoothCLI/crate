@@ -9,9 +9,9 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/license/SmoothCLI/audioDL">
-  <img src="https://img.shields.io/github/stars/SmoothCLI/audioDL">
-  <img src="https://img.shields.io/github/last-commit/SmoothCLI/audioDL">
+  <img src="https://img.shields.io/github/license/SmoothCLI/crate">
+  <img src="https://img.shields.io/github/stars/SmoothCLI/crate">
+  <img src="https://img.shields.io/github/last-commit/SmoothCLI/crate">
   <img src="https://img.shields.io/badge/platform-Linux-blue">
 </p>
 
@@ -232,7 +232,7 @@ Most Linux distributions provide these packages through their default package ma
 Clone the repository:
 
 ```bash
-git clone https://github.com/SmoothCLI/audioDL.git
+git clone https://github.com/SmoothCLI/crate.git
 cd audioDL
 ```
 
