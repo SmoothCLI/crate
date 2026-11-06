@@ -79,9 +79,38 @@ jobs:
         working-directory: web
         run: npm run build
 
+  layout:
+    name: layout audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # No PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD here: this job needs a browser.
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Build UI
+        working-directory: web
+        run: npm run build
+
+      - name: Layout audit at 390, 768 and 1440 px
+        working-directory: web
+        run: npm run test:layout
+
   publish:
     name: publish image
-    needs: test
+    needs: [test, layout]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
