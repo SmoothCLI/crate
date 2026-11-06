@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest a change that fits the existing workflow
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Crate is meant to stay simple: a link in, a clean library out. Ideas that
+        add a second way to do the same thing are usually not accepted, but
+        rough edges in the current workflow often are.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation you are in, not only the feature you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do today instead?
+      description: An existing flag, a manual step, another tool.
+    validations:
+      required: false
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where would it live?
+      options:
+        - Terminal (dlAudio.sh)
+        - Web UI
+        - Docker image or compose
+        - Documentation
+    validations:
+      required: true

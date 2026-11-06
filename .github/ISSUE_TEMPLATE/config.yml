@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Web UI manual
+    url: https://github.com/SmoothCLI/crate/blob/main/web/README.md
+    about: Queue, /admin, formats, cover art, guest limits and troubleshooting.
+  - name: MusicBrainz matching
+    url: https://github.com/SmoothCLI/crate/blob/main/MUSICBRAINZ.md
+    about: How releases are matched, and the environment variables that change it.

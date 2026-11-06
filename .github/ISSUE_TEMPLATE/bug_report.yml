@@ -1,0 +1,58 @@
+name: Bug report
+description: Something does not work as documented
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the existing issues first. For a security problem, use the
+        Security tab instead - not a public issue.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where does it happen?
+      options:
+        - Terminal (dlAudio.sh)
+        - Web UI
+        - Docker image or compose
+        - Installation
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: The command or click you made, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output
+      description: The terminal output, or the browser console and server log for the web UI. Remove cookies, tokens and paths you would rather not share.
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release tag, or the output of `./dlAudio.sh --version`.
+      placeholder: "3.1.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node version, and whether you ran the script, `npm start`, or Docker.
+      placeholder: "Ubuntu 24.04, Node 22.11, Docker 27"
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source URL
+      description: The link that triggered it, if the problem is specific to one source. A short example is enough.
+    validations:
+      required: false
