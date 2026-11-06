@@ -10,6 +10,7 @@ import type {
   Job,
   LibraryBrowse,
   LibraryHealth,
+  LibrarySort,
   LibraryStats,
   Preview,
   Role,
@@ -131,16 +132,21 @@ export const api = {
   removeCookies: () =>
     request<{ ok: true; cookies: CookiesState }>("/api/cookies", { method: "DELETE" }),
   library: () => request<LibraryStats>("/api/library"),
-  browseLibrary: (params: { q?: string; artist?: string; album?: string } = {}) => {
+  browseLibrary: (
+    params: { q?: string; artist?: string; album?: string; sort?: LibrarySort } = {},
+  ) => {
     const query = new URLSearchParams();
     if (params.q) query.set("q", params.q);
     if (params.artist) query.set("artist", params.artist);
     if (params.album) query.set("album", params.album);
+    if (params.sort) query.set("sort", params.sort);
     const suffix = query.toString();
     return request<LibraryBrowse>(`/api/library/browse${suffix ? `?${suffix}` : ""}`);
   },
   // A URL for <audio>: the server answers ranges, so the element can scrub.
   libraryTrack: (file: string) => `/api/library/track?path=${encodeURIComponent(file)}`,
+  // One cover per album folder, read from a cover.jpg or the embedded picture.
+  libraryCover: (dir: string) => `/api/library/cover?dir=${encodeURIComponent(dir)}`,
   libraryHealth: () => request<LibraryHealth>("/api/library/health"),
   pruneEmptyFolders: (dirs: string[]) =>
     request<{ removed: string[]; failed: { dir: string; reason: string }[] }>(

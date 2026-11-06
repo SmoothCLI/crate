@@ -2154,7 +2154,19 @@ const BROWSE_TTL = 20_000;
 const BROWSE_MAX_FILES = 50_000;
 const BROWSE_MAX_RESULTS = 200;
 
-let browseCache = { at: 0, root: "", items: [], truncated: false };
+let browseCache = { at: 0, root: "", stamp: -1, items: [], truncated: false };
+
+// The root's own mtime changes whenever an artist folder is added or removed,
+// which is the common case for a download landing in a new folder. Checking it
+// means a new album shows up on the next look instead of up to 20 s later,
+// while the timer still bounds a walk over a large collection.
+function browseStamp(root) {
+  try {
+    return fs.statSync(root).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
 
 function browseEntry(full, artist, album, name, stat) {
   const base = path.basename(name, path.extname(name));
@@ -2166,6 +2178,8 @@ function browseEntry(full, artist, album, name, stat) {
     name,
     artist,
     album,
+    // The folder is the album, so it is also the key for its cover.
+    dir: path.dirname(full),
     title: (numbered ? numbered[2] : base).trim(),
     track: numbered ? Number(numbered[1]) : null,
     ext: path.extname(name).slice(1).toLowerCase(),
@@ -2176,7 +2190,14 @@ function browseEntry(full, artist, album, name, stat) {
 
 function libraryBrowseIndex() {
   const root = settings.musicDir;
-  if (browseCache.root === root && Date.now() - browseCache.at < BROWSE_TTL) return browseCache;
+  const stamp = browseStamp(root);
+  if (
+    browseCache.root === root &&
+    browseCache.stamp === stamp &&
+    Date.now() - browseCache.at < BROWSE_TTL
+  ) {
+    return browseCache;
+  }
 
   const items = [];
   let truncated = false;
@@ -2212,7 +2233,7 @@ function libraryBrowseIndex() {
   };
   walk(root, 0, "", "");
 
-  browseCache = { at: Date.now(), root, items, truncated };
+  browseCache = { at: Date.now(), root, stamp, items, truncated };
   return browseCache;
 }
 
@@ -2221,13 +2242,214 @@ function libraryBrowseIndex() {
 const browseArtist = (item) => item.artist || "Unknown artist";
 const browseAlbum = (item) => item.album || "Unknown album";
 
-function sortTracks(tracks) {
-  return tracks.sort((a, b) => {
+// Sorting happens here rather than in the browser: a page only ever holds one
+// artist, one album or one search page, so the order has to be right for the
+// slice that was sent.
+const LIBRARY_SORTS = {
+  // The order the files sit in the folder, which is the album's own order.
+  track: (a, b) => {
     const left = a.track ?? Number.MAX_SAFE_INTEGER;
     const right = b.track ?? Number.MAX_SAFE_INTEGER;
     return left === right ? a.title.localeCompare(b.title) : left - right;
+  },
+  title: (a, b) =>
+    a.title.localeCompare(b.title) || browseArtist(a).localeCompare(browseArtist(b)),
+  artist: (a, b) =>
+    browseArtist(a).localeCompare(browseArtist(b)) ||
+    browseAlbum(a).localeCompare(browseAlbum(b)) ||
+    LIBRARY_SORTS.track(a, b),
+  album: (a, b) =>
+    browseAlbum(a).localeCompare(browseAlbum(b)) ||
+    browseArtist(a).localeCompare(browseArtist(b)) ||
+    LIBRARY_SORTS.track(a, b),
+  added: (a, b) => (b.mtime || 0) - (a.mtime || 0) || a.title.localeCompare(b.title),
+  size: (a, b) => (b.bytes || 0) - (a.bytes || 0) || a.title.localeCompare(b.title),
+};
+const LIBRARY_SORT_KEYS = new Set(Object.keys(LIBRARY_SORTS));
+
+function sortTracks(tracks, sort) {
+  return tracks.sort(LIBRARY_SORTS[sort] ?? LIBRARY_SORTS.track);
+}
+
+// ------------------------------------------------------------------ album art
+//
+// The library is the owner's folder, not a log of what this app downloaded, so
+// a file copied in by hand has no cached cover. The artwork is read from what
+// is on disk instead: a cover.jpg beside the tracks, or the picture already
+// embedded in the audio itself. Extracted copies are cached and keyed by the
+// folder's newest mtime, so a changed album re-extracts and a static one is
+// served from disk without touching ffmpeg.
+const LIBRARY_COVER_DIR = path.join(DATA_DIR, "library-covers");
+const LIBRARY_COVER_KEEP = 500;
+const LIBRARY_COVER_NAME = /^(?:cover|folder|front|album|albumart|artwork)\.(?:jpg|jpeg|png|webp)$/i;
+const LIBRARY_IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+
+function readDirSafe(dir) {
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+}
+
+function filesIn(dir, keep) {
+  return readDirSafe(dir)
+    .filter((entry) => entry.isFile() && keep(entry.name))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((entry) => path.join(dir, entry.name));
+}
+
+// A named cover wins over any other image: the name is the convention every
+// tagger writes, while a folder can also hold a scan of the booklet.
+function coverBeside(dir) {
+  const images = filesIn(dir, (name) => LIBRARY_IMAGE_EXT.has(path.extname(name).toLowerCase()));
+  return images.find((file) => LIBRARY_COVER_NAME.test(path.basename(file))) ?? images[0] ?? null;
+}
+
+function extractEmbeddedCover(file, output) {
+  const ffmpeg = findTool("ffmpeg");
+  if (!ffmpeg) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const child = spawn(
+      ffmpeg,
+      [
+        "-v",
+        "error",
+        "-i",
+        file,
+        "-map",
+        "0:v:0",
+        "-frames:v",
+        "1",
+        "-c:v",
+        "mjpeg",
+        "-q:v",
+        "3",
+        "-y",
+        output,
+      ],
+      { stdio: ["ignore", "ignore", "ignore"] },
+    );
+    const timer = setTimeout(() => child.kill("SIGKILL"), 20_000);
+    const done = (ok) => {
+      clearTimeout(timer);
+      resolve(ok);
+    };
+    child.on("error", () => done(false));
+    child.on("close", (code) => done(code === 0));
   });
 }
+
+// The cache is a convenience, not the library: cap it so a collection that is
+// re-organised every week cannot fill the data folder.
+function pruneLibraryCovers() {
+  let names = [];
+  try {
+    names = fs.readdirSync(LIBRARY_COVER_DIR);
+  } catch {
+    return;
+  }
+  if (names.length <= LIBRARY_COVER_KEEP) return;
+  const stamped = names
+    .map((name) => {
+      const file = path.join(LIBRARY_COVER_DIR, name);
+      try {
+        return { file, at: fs.statSync(file).mtimeMs };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.at - b.at);
+  for (const entry of stamped.slice(0, stamped.length - LIBRARY_COVER_KEEP)) {
+    try {
+      fs.rmSync(entry.file, { force: true });
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
+async function embeddedCover(dir) {
+  const audio = filesIn(dir, (name) => AUDIO_EXT.has(path.extname(name).toLowerCase()));
+  if (audio.length === 0) return null;
+  let newest = 0;
+  for (const file of audio) {
+    try {
+      newest = Math.max(newest, fs.statSync(file).mtimeMs);
+    } catch {
+      /* a file that vanished mid-scan just does not stamp the folder */
+    }
+  }
+  const key = createHash("sha1")
+    .update(`${dir}\0${audio.length}\0${Math.round(newest)}`)
+    .digest("hex");
+  const cached = path.join(LIBRARY_COVER_DIR, `${key}.jpg`);
+  try {
+    if (fs.statSync(cached).size > 0) return cached;
+  } catch {
+    /* not extracted yet */
+  }
+  const temp = `${cached}.${randomBytes(6).toString("hex")}.tmp.jpg`;
+  try {
+    fs.mkdirSync(LIBRARY_COVER_DIR, { recursive: true });
+    // A file with no picture in it makes ffmpeg exit non-zero and write
+    // nothing, which is the "no cover" answer rather than an error.
+    if (!(await extractEmbeddedCover(audio[0], temp))) return null;
+    if (fs.statSync(temp).size === 0) return null;
+    fs.renameSync(temp, cached);
+    pruneLibraryCovers();
+  } catch {
+    return null;
+  } finally {
+    fs.rmSync(temp, { force: true });
+  }
+  return cached;
+}
+
+// One folder is one cover, so the browser asks once per album and the answer is
+// cached by the album's own directory.
+app.get("/api/library/cover", async (req, res) => {
+  if (req.auth.role !== "owner") {
+    res.status(403).json({ error: "Only the owner can see the library covers." });
+    return;
+  }
+  const raw = String(req.query.dir || "").trim();
+  if (!raw) {
+    res.status(404).end();
+    return;
+  }
+  const dir = path.resolve(raw);
+  // The root holds loose files, so an equal path is allowed; anything above it
+  // is not.
+  const rel = path.relative(path.resolve(settings.musicDir), dir);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    res.status(404).end();
+    return;
+  }
+  let stat = null;
+  try {
+    stat = fs.statSync(dir);
+  } catch {
+    res.status(404).end();
+    return;
+  }
+  if (!stat.isDirectory()) {
+    res.status(404).end();
+    return;
+  }
+  const file = coverBeside(dir) ?? (await embeddedCover(dir));
+  if (!file) {
+    res.status(404).end();
+    return;
+  }
+  // Short rather than immutable: a tagger that rewrites the cover has to show
+  // up without a hard reload.
+  res.set("Cache-Control", "private, max-age=300, must-revalidate");
+  res.sendFile(file, (err) => {
+    if (err && !res.headersSent) res.status(404).end();
+  });
+});
 
 app.get("/api/library/browse", (req, res) => {
   if (req.auth.role !== "owner") {
@@ -2238,6 +2460,8 @@ app.get("/api/library/browse", (req, res) => {
   const q = String(req.query.q || "").trim().slice(0, 120);
   const artist = String(req.query.artist || "").trim().slice(0, 240);
   const album = String(req.query.album || "").trim().slice(0, 240);
+  const sortParam = String(req.query.sort || "");
+  const sort = LIBRARY_SORT_KEYS.has(sortParam) ? sortParam : "track";
   const total = index.items.length;
   const shell = {
     root: index.root,
@@ -2245,6 +2469,7 @@ app.get("/api/library/browse", (req, res) => {
     truncated: index.truncated,
     total,
     q,
+    sort,
     matched: total,
     artists: [],
     albums: [],
@@ -2263,7 +2488,7 @@ app.get("/api/library/browse", (req, res) => {
       matched += 1;
       if (found.length < BROWSE_MAX_RESULTS) found.push(item);
     }
-    res.json({ ...shell, matched, tracks: sortTracks(found) });
+    res.json({ ...shell, matched, tracks: sortTracks(found, sort) });
     return;
   }
 
@@ -2280,7 +2505,13 @@ app.get("/api/library/browse", (req, res) => {
     const albumName = browseAlbum(item);
     let entry = bucket.albums.get(albumName);
     if (!entry) {
-      entry = { name: albumName, artist: name, tracks: 0, bytes: 0 };
+      entry = {
+        name: albumName,
+        artist: name,
+        dir: path.dirname(item.path),
+        tracks: 0,
+        bytes: 0,
+      };
       bucket.albums.set(albumName, entry);
     }
     entry.tracks += 1;
@@ -2305,6 +2536,7 @@ app.get("/api/library/browse", (req, res) => {
             (item) =>
               browseArtist(item) === artist && (!album || browseAlbum(item) === album),
           ),
+          sort,
         )
       : [],
   });

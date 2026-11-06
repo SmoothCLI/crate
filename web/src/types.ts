@@ -293,6 +293,8 @@ export type LibraryTrack = {
   name: string;
   artist: string;
   album: string;
+  // The folder the file is in, which is also the key for the album's cover.
+  dir: string;
   title: string;
   track: number | null;
   ext: string;
@@ -302,7 +304,18 @@ export type LibraryTrack = {
 
 export type LibraryArtist = { name: string; tracks: number; bytes: number; albums: number };
 
-export type LibraryAlbum = { name: string; artist: string; tracks: number; bytes: number };
+export type LibraryAlbum = {
+  name: string;
+  artist: string;
+  dir: string;
+  tracks: number;
+  bytes: number;
+};
+
+// The orders the browser can ask the server for. Album order is the default:
+// the numeric prefix the downloader writes, or the file name when there is
+// none.
+export type LibrarySort = "track" | "title" | "artist" | "album" | "added" | "size";
 
 // One endpoint answers all three views: the artist list always, the albums and
 // tracks of the chosen artist, or a flat result list when `q` is set.
@@ -312,6 +325,7 @@ export type LibraryBrowse = {
   truncated: boolean;
   total: number;
   q: string;
+  sort: LibrarySort;
   matched: number;
   artists: LibraryArtist[];
   albums: LibraryAlbum[];
