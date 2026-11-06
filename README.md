@@ -1,34 +1,40 @@
 <p align="center">
-  <img src="https://github.com/SmoothCLI/.github/blob/main/profile/SmoothCLI.png?raw=true" width="150">
+  <img src="https://github.com/SmoothCLI/.github/blob/main/profile/SmoothCLI.png?raw=true" width="120" alt="SmoothCLI">
 </p>
 
 <h1 align="center">Crate</h1>
 
 <p align="center">
-  A smooth, interactive music downloader powered by yt-dlp and FFmpeg.
+  A guided music downloader for the terminal, with a self-hosted web queue.<br>
+  <sub>yt-dlp · FFmpeg · MusicBrainz · a clean library when it is done.</sub>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/license/SmoothCLI/crate">
-  <img src="https://img.shields.io/github/stars/SmoothCLI/crate">
-  <img src="https://img.shields.io/github/last-commit/SmoothCLI/crate">
-  <img src="https://img.shields.io/github/actions/workflow/status/SmoothCLI/crate/publish.yml?label=build">
-  <img src="https://img.shields.io/github/v/release/SmoothCLI/crate">
-  <img src="https://img.shields.io/badge/platform-Linux-blue">
+  <a href="https://github.com/SmoothCLI/crate/releases/latest"><img src="https://img.shields.io/github/v/release/SmoothCLI/crate?style=flat-square" alt="Latest release"></a>
+  <a href="https://github.com/SmoothCLI/crate/actions/workflows/publish.yml"><img src="https://img.shields.io/github/actions/workflow/status/SmoothCLI/crate/publish.yml?label=build&style=flat-square" alt="Build"></a>
+  <a href="https://github.com/SmoothCLI/crate/stargazers"><img src="https://img.shields.io/github/stars/SmoothCLI/crate?style=flat-square" alt="Stars"></a>
+  <a href="https://github.com/SmoothCLI/crate/commits/main"><img src="https://img.shields.io/github/last-commit/SmoothCLI/crate?style=flat-square" alt="Last commit"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/SmoothCLI/crate?style=flat-square" alt="MIT"></a>
+  <img src="https://img.shields.io/badge/platform-linux-2f3437?style=flat-square" alt="Linux">
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="web/README.md">Web manual</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="docs/reverse-proxy.md">Reverse proxy</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 ---
 
-Crate is a terminal-based music downloader that combines `yt-dlp`, `FFmpeg`, and related tools into a simple guided workflow.
+Crate turns a track or playlist URL into a tagged, normalized file inside a
+library that Jellyfin, Navidrome and friends already understand. It wraps
+`yt-dlp`, FFmpeg and MusicBrainz so you do not have to remember the flags.
 
-It handles downloading, metadata, artwork, normalization, and music library organization automatically, creating clean libraries ready for Jellyfin and other media servers.
-
-No complicated commands.  
-No remembering dozens of flags.
-
-Just provide a URL and let Crate handle the rest.
-
----
+The same engine ships with a web UI: paste a link, review what it found, fix the
+tags or cover, and queue it. Guests can download too, without ever writing into
+your library.
 
 ## Preview
 
@@ -37,7 +43,7 @@ Just provide a URL and let Crate handle the rest.
 </p>
 
 <p align="center">
-  <em>The web UI: paste a link, review the tags, queue it (2× speed).</em>
+  <sub><b>Web UI</b> — paste a link, review the tags, queue it (2× speed).</sub>
 </p>
 
 <p align="center">
@@ -45,297 +51,131 @@ Just provide a URL and let Crate handle the rest.
 </p>
 
 <p align="center">
-  <em>Or from the terminal: the same link inspected, downloaded, normalised and tagged (1.4× speed).</em>
+  <sub><b>Terminal</b> — the same link inspected, downloaded, normalized and tagged (1.4× speed).</sub>
 </p>
 
----
+## Quick start
 
-## Highlights
-
-- 🎵 Single command workflow: paste a URL, Crate does the rest.
-- 🎧 Best available audio selection with EBU R128 loudness normalization.
-- 📂 Automatic music library organization.
-- 📝 Embedded metadata and artwork handling.
-- ✨ Optional enhanced terminal UI powered by `gum`.
-- 🔄 Safe workflows with resume support and duplicate detection.
-- 🖥️ Optional self-hosted web UI with a review card, queue and guest streaming.
-
----
-
-## Why Crate?
-
-Tools like `yt-dlp` and `FFmpeg` are incredibly powerful, but everyday workflows can become repetitive and difficult to remember.
-
-Crate does not replace these tools.
-
-Instead, it combines them into a smoother workflow so you can focus on your music instead of remembering commands, flags, and filters.
-
----
-
-## How it works
-
-Crate follows a simple processing pipeline:
-
-```text
-URL
- ↓
-Metadata extraction
- ↓
-Audio download
- ↓
-Audio normalization
- ↓
-Artwork processing
- ↓
-Metadata embedding
- ↓
-Organized music library
-````
-
----
-
-## Features
-
-### 🌐 Supported sources
-
-Powered by `yt-dlp`, Crate supports hundreds of websites.
-
-Tested sources include:
-
-* YouTube
-* SoundCloud
-* Many other `yt-dlp` compatible services
-
----
-
-### 🎧 Automatic audio processing
-
-Crate automatically handles:
-
-* Best available audio stream selection.
-* EBU R128 loudness normalization.
-* AAC encoding for modern compatibility.
-* Sample rate preservation whenever possible.
-
-The result:
-
-```text
-Artist/
-└── Album/
-    └── Track.m4a
-```
-
-A clean and organized music library with embedded metadata and artwork, optimized for Jellyfin, media servers, and everyday playback.
-
----
-
-### 📝 Metadata management
-
-Crate automatically retrieves metadata when available.
-
-Supported fields:
-
-* Artist
-* Album
-* Title
-* Track number
-* Release date
-
-Metadata can be reviewed and edited before processing.
-
-Final metadata is embedded directly into the output file.
-
----
-
-### 🖼️ Artwork support
-
-Crate supports automatic artwork handling:
-
-* Downloads cover artwork when available.
-* Converts and optimizes images using ImageMagick.
-* Embeds artwork into the final audio file.
-* Optional terminal previews using `timg` or `chafa`.
-
----
-
-### 📂 Music library organization
-
-Files are automatically organized into a clean structure:
-
-```text
-Music/
-└── Artist/
-    └── Album/
-        └── Track.m4a
-```
-
-The music directory can be customized for:
-
-* Local storage
-* NAS libraries
-* External drives
-* Media servers
-
----
-
-### 🔄 Reliable workflows
-
-Crate includes features designed for daily use:
-
-* Resume support after interrupted downloads.
-* Session checkpoints.
-* Existing file detection.
-* Safe filename handling.
-* Protection against accidental overwrites.
-
----
-
-### ✨ Beautiful terminal UI
-
-With optional [`gum`](https://github.com/charmbracelet/gum) support, Crate provides:
-
-* Styled messages.
-* Interactive prompts.
-* Selection menus.
-* Loading spinners.
-* Improved terminal feedback.
-
-Without `gum`, Crate continues to work in a normal terminal.
-
----
-
-## Requirements
-
-Make sure these tools are available in your `$PATH`.
-
-### Required
-
-* `bash`
-* `yt-dlp`
-* `ffmpeg`
-* `ffprobe`
-* ImageMagick
-* `curl`
-* `file`
-* `fzf`
-
-### Optional
-
-* `jq` — enables two-pass loudness normalization.
-* `gum` — enhanced terminal interface.
-* `timg` / `chafa` — artwork preview support.
-
-Most Linux distributions provide these packages through their default package manager.
-
----
-
-## Installation
-
-Clone the repository:
+The fastest path is the published image. It already contains `yt-dlp`, FFmpeg,
+`jq`, Python and mutagen, and runs as your user so files are not owned by root.
 
 ```bash
 git clone https://github.com/SmoothCLI/crate.git
 cd crate
+docker compose up -d
 ```
 
-Make the script executable:
+Open **http://localhost:8099** and finish the one-time setup at `/setup`: pick an
+instance name, an owner username and a password. The library is `MUSIC_DIR` from
+your environment, `~/Music` by default, mounted at the same path inside the
+container.
 
-```bash
-chmod +x dlAudio.sh
-```
+Prefer to run without Docker? See [From a checkout](#from-a-checkout).
 
-Run:
+## What it does
 
-```bash
-./dlAudio.sh <URL>
-```
+| | |
+|---|---|
+| **One link in** | A track or a whole playlist; every entry is listed with its title and duration before anything is written. |
+| **The right audio** | Best available stream, EBU R128 loudness normalization, AAC by default, optional Opus/MP3/FLAC/WAV. |
+| **Real metadata** | MusicBrainz matching, artist/album/title/track/date, multi-artist tags, genre suggestions from the library. |
+| **Cover art** | Fetched, resized and embedded — or uploaded/dropped in the web UI, per album or per track. |
+| **A tidy library** | `ARTIST/ALBUM/[NN - ]TITLE.format`, existing files detected, resumable sessions, duplicate fingerprints. |
+| **A queue that survives** | Live stage progress over SSE, retry after a crash, per-host concurrency caps, optional webhook. |
+| **Guests, safely** | Guest downloads are encoded on the server and streamed to the browser; nothing lands in the library. |
+| **Owner tools** | `/admin` for formats, quota, cookies for signed-in sources, diagnostics, 2FA and backups. |
 
-For easier access, you can add it to your `$PATH`:
-
-```bash
-sudo ln -s "$(pwd)/dlAudio.sh" /usr/local/bin/crate
-```
-
----
-
-## Quick Start
-
-Download a SoundCloud track:
-
-```bash
-crate https://soundcloud.com/example/song
-```
-
-Download audio from YouTube:
-
-```bash
-crate https://youtube.com/watch?v=EXAMPLE
-```
-
-Example workflow:
+## How it works
 
 ```text
-Fetching metadata...
-
-Artist: Example Artist
-Album: Example Album
-Title: Example Track
-
-Continue? [Y/n]
-
-Downloading audio...
-✔ Download complete.
-
-Normalizing audio...
-✔ Normalization complete.
-
-Embedding metadata...
-✔ Metadata embedded.
-
-Download completed.
-
-Saved:
-~/Music/Example Artist/Example Album/Example Track.m4a
+URL
+ │
+ ├─ inspect ──── title, duration, artist, album, cover (yt-dlp + MusicBrainz)
+ │
+ ├─ review ───── fix tags, pick tracks, choose a cover (web UI or prompts)
+ │
+ ├─ download ─── best audio stream
+ ├─ normalize ── EBU R128 to the target LUFS
+ ├─ tag ──────── metadata, artwork, date, ReplayGain
+ │
+ └─ write ────── ARTIST/ALBUM/[NN - ]TITLE.format
 ```
 
----
+Nothing is downloaded until you have seen what will be downloaded.
 
-## Web UI
+## Installation
 
-The same downloader also ships with a self-hosted web app in `web/`: paste a link, review the tags and cover art it found, fix what you like, and queue it. The script still does all the downloading, normalizing and tagging.
-
-```bash
-cd web
-npm install
-npm run build
-AUDIODL_PASSWORD=choose-something node server/index.mjs
-```
-
-Open `http://localhost:8080`; the first visit asks for an instance name and an owner password. Guests can download too - their audio is streamed straight to the browser and never written to the library.
-
-The image is published to the GitHub Container Registry, so Docker only has to
-pull it:
+### Docker (recommended)
 
 ```bash
 docker pull ghcr.io/smoothcli/crate:latest
 docker compose up -d
 ```
 
-While changing the server or the UI, build the image from this checkout instead:
+`compose.yaml` pulls the published image. While changing the server or the UI,
+build the working copy instead:
 
 ```bash
 docker compose -f compose.dev.yaml up --build
 ```
 
-Then open `http://localhost:8099`. The full manual - queue, `/admin`, formats, cover art, guest limits - is in [`web/README.md`](web/README.md).
+### From a checkout
 
----
+Requirements: `bash`, `yt-dlp`, `ffmpeg`, `ffprobe`, ImageMagick, `curl`, `file`,
+`fzf`; optional `jq` (two-pass loudness), `gum` (nicer terminal UI), and
+`timg`/`chafa` (artwork previews).
+
+```bash
+git clone https://github.com/SmoothCLI/crate.git
+cd crate
+chmod +x dlAudio.sh
+./dlAudio.sh https://soundcloud.com/example/song
+```
+
+Put it on your `PATH` if you like:
+
+```bash
+sudo ln -s "$(pwd)/dlAudio.sh" /usr/local/bin/crate
+```
+
+For the web UI from source:
+
+```bash
+cd web
+npm ci
+npm run build
+AUDIODL_PASSWORD=choose-something node server/index.mjs
+```
+
+The UI is then on **http://localhost:8080**.
 
 ## Configuration
 
-Configuration variables can be found in the `CONFIGURATION` section of the script.
+### Web server
 
-Example:
+Set these in a `.env` next to `compose.yaml`, or on the command line. Everything
+except `AUDIODL_PASSWORD` can also be changed later at `/admin`.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `AUDIODL_PASSWORD` | — | Sets the owner password on startup; skips `/setup`. |
+| `MUSIC_DIR` | `~/Music` | Library root. Mounted at the same path in the container. |
+| `MUSICBRAINZ_USER_AGENT` | `audioDL/<version>` | Sent to MusicBrainz; set a contact URL or e-mail. |
+| `AUDIODL_GUEST` | `1` | `0` requires the password for every download. |
+| `AUDIODL_CONCURRENCY` | `2` | Initial jobs that may run at once. |
+| `AUDIODL_PER_HOST` | `2` | Initial cap per source host. |
+| `AUDIODL_WEBHOOK` | — | Initial webhook URL for finished jobs. |
+| `AUDIODL_PORT` | `8080` | HTTP port inside the container. |
+| `AUDIODL_HOST` | `0.0.0.0` | Bind address; `127.0.0.1` keeps it local-only. |
+| `AUDIODL_DATA` | `web/data` | Settings, saved queue, workspaces. |
+| `AUDIODL_BIN` | `../dlAudio.sh` | Path to the downloader. |
+
+The compose file publishes **8099** on the host. State lives in `./data`; the
+music library is whatever `MUSIC_DIR` points at.
+
+### Terminal script
+
+The defaults sit near the top of `dlAudio.sh`:
 
 ```bash
 MUSIC_DIR="$HOME/Music"
@@ -343,93 +183,51 @@ TARGET_LUFS="-9"
 ARTWORK_SIZE="1000"
 ```
 
-Available options:
+`./dlAudio.sh --help` lists the flags; `--version` prints the running release.
 
-* `MUSIC_DIR`
-  Base directory for the organized music library.
+## Documentation
 
-* `TARGET_LUFS`
-  Target loudness level used during normalization.
+- [`web/README.md`](web/README.md) — the queue, `/admin`, formats, guests, cookies, covers, troubleshooting.
+- [`docs/reverse-proxy.md`](docs/reverse-proxy.md) — HTTPS and a public instance with Caddy or nginx, including SSE settings.
+- [`MUSICBRAINZ.md`](MUSICBRAINZ.md) — matching rules and the artist map.
+- [`CHANGELOG.md`](CHANGELOG.md) — every release.
+- [`RELEASING.md`](RELEASING.md) — how versions, tags and images are made.
 
-* `ARTWORK_SIZE`
-  Maximum artwork size in pixels.
-
-Changes are applied immediately.
-No build process is required.
-
----
-
-## Uninstall
-
-If installed system-wide:
+## Development
 
 ```bash
-sudo rm /usr/local/bin/crate
+# terminal script tests (needs ffmpeg/jq)
+node --test test/*.test.mjs
+
+# web UI: typecheck, server suite, build, browser audit
+cd web
+npm ci
+npm run typecheck
+npm test
+npm run build
+npx playwright install chromium   # once
+npm run test:layout
 ```
 
-Downloaded music files are not removed automatically.
+The browser audit runs a real Chromium at 390, 768 and 1440 px against a seeded
+server. There are no screenshot baselines on purpose.
 
----
-
-## Project status
-
-Crate is considered feature-complete for its current workflow.
-
-Future updates will focus on:
-
-* Improving reliability.
-* Fixing bugs.
-* Refining the user experience.
-* Adding features that fit the existing workflow.
-
-Suggestions and bug reports are welcome through GitHub issues.
-
----
+Commits follow the present tense, one idea per commit; [`CONTRIBUTING.md`](CONTRIBUTING.md)
+has the details.
 
 ## Security
 
-Found a way to bypass the owner password, reach outside the library, or expose
-another session? Report it privately as described in [`SECURITY.md`](SECURITY.md)
-rather than opening an issue.
-
----
-
-## Changelog
-
-Every release is documented in [`CHANGELOG.md`](CHANGELOG.md).
-
----
-
-## Contributing
-
-Contributions are welcome. [`CONTRIBUTING.md`](CONTRIBUTING.md) has the local
-setup, the test commands and the commit conventions.
-
-To contribute:
-
-1. Fork the repository.
-2. Create a feature branch.
-3. Make your changes.
-4. Test your changes.
-5. Open a pull request with a clear explanation.
-
-Please keep the workflow simple and avoid adding unnecessary complexity to the user interface.
-
----
-
-## Built with
-
-* [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-* [FFmpeg](https://ffmpeg.org/)
-* [gum](https://github.com/charmbracelet/gum)
-* [jq](https://github.com/jqlang/jq)
-
----
+Report vulnerabilities privately as described in [`SECURITY.md`](SECURITY.md).
+A public instance should sit behind HTTPS — see the
+[reverse-proxy guide](docs/reverse-proxy.md) — and guest access can be turned off
+entirely at `/admin#guests`.
 
 ## License
 
-Crate is released under the [MIT License](LICENSE).
+[MIT](LICENSE). Crate is a workflow around excellent tools, not a replacement for
+them: [yt-dlp](https://github.com/yt-dlp/yt-dlp), [FFmpeg](https://ffmpeg.org/),
+[gum](https://github.com/charmbracelet/gum), [jq](https://github.com/jqlang/jq).
 
 <p align="center">
-  Made with ❤️ and too much terminal time.
+  <sub>Built for people who would rather listen than remember flags.</sub>
 </p>

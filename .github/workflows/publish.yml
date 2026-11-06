@@ -243,3 +243,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Attach provenance and an SBOM to the pushed image, so a puller can
+          # verify which workflow and source produced the digest.
+          provenance: mode=max
+          sbom: true
