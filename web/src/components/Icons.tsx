@@ -169,8 +169,8 @@ export function PlayIcon({ size = 13, className }: IconProps) {
 export function PauseIcon({ size = 13, className }: IconProps) {
   return (
     <svg {...base(size)} className={className}>
-      <rect x="6" y="4.4" width="2.8" height="11.2" rx="1" fill="currentColor" stroke="none" />
-      <rect x="11.2" y="4.4" width="2.8" height="11.2" rx="1" fill="currentColor" stroke="none" />
+      <rect x="5.2" y="4" width="3.8" height="12" rx="1.2" fill="currentColor" stroke="none" />
+      <rect x="11" y="4" width="3.8" height="12" rx="1.2" fill="currentColor" stroke="none" />
     </svg>
   );
 }

@@ -326,6 +326,26 @@ body {
   cursor: not-allowed;
 }
 
+/* An icon-only button. The base .btn padding lives in this stylesheet, outside
+   Tailwind's layers, so `p-0` cannot beat it: a 16px glyph was being squeezed
+   into a 4px box and read as a dot. The class sets the box instead. */
+.btn-icon,
+.btn-icon-lg {
+  padding: 0;
+  border-radius: 999px;
+  flex: none;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.btn-icon-lg {
+  width: 36px;
+  height: 36px;
+}
+
 .btn-primary {
   background: linear-gradient(
     180deg,

@@ -325,7 +325,7 @@ export function LibraryPage() {
                     <div className="card flex items-center gap-3 p-2.5">
                       <button
                         type="button"
-                        className="btn btn-ghost h-8 w-8 shrink-0 rounded-full p-0"
+                        className="btn btn-ghost btn-icon shrink-0"
                         onClick={() => setAlbum(null)}
                         aria-label="All albums"
                         title="All albums"
@@ -436,7 +436,7 @@ export function LibraryPage() {
 
             <div className="mt-2.5 flex items-center gap-2.5">
               <button
-                className="btn btn-ghost h-8 w-8 shrink-0 rounded-full p-0"
+                className="btn btn-ghost btn-icon shrink-0"
                 onClick={() => step(-1)}
                 disabled={index <= 0}
                 aria-label="Previous track"
@@ -445,15 +445,15 @@ export function LibraryPage() {
                 <ArrowIcon className="rotate-180" />
               </button>
               <button
-                className="btn btn-primary h-9 w-9 shrink-0 rounded-full p-0"
+                className="btn btn-primary btn-icon btn-icon-lg shrink-0"
                 onClick={togglePlay}
                 aria-label={paused ? "Resume" : "Pause"}
                 title={paused ? "Resume" : "Pause"}
               >
-                {paused ? <PlayIcon size={14} /> : <PauseIcon size={14} />}
+                {paused ? <PlayIcon size={15} /> : <PauseIcon size={16} />}
               </button>
               <button
-                className="btn btn-ghost h-8 w-8 shrink-0 rounded-full p-0"
+                className="btn btn-ghost btn-icon shrink-0"
                 onClick={() => step(1)}
                 disabled={index + 1 >= queue.length}
                 aria-label="Next track"
@@ -487,7 +487,7 @@ export function LibraryPage() {
 
               <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
                 <button
-                  className="btn btn-ghost h-8 w-8 rounded-full p-0"
+                  className="btn btn-ghost btn-icon"
                   onClick={() => {
                     const next = !muted;
                     setMuted(next);
