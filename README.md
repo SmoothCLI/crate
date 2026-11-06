@@ -12,6 +12,8 @@
   <img src="https://img.shields.io/github/license/SmoothCLI/crate">
   <img src="https://img.shields.io/github/stars/SmoothCLI/crate">
   <img src="https://img.shields.io/github/last-commit/SmoothCLI/crate">
+  <img src="https://img.shields.io/github/actions/workflow/status/SmoothCLI/crate/publish.yml?label=build">
+  <img src="https://img.shields.io/github/v/release/SmoothCLI/crate">
   <img src="https://img.shields.io/badge/platform-Linux-blue">
 </p>
 
@@ -233,7 +235,7 @@ Clone the repository:
 
 ```bash
 git clone https://github.com/SmoothCLI/crate.git
-cd audioDL
+cd crate
 ```
 
 Make the script executable:
@@ -384,9 +386,16 @@ Suggestions and bug reports are welcome through GitHub issues.
 
 ---
 
+## Changelog
+
+Every release is documented in [`CHANGELOG.md`](CHANGELOG.md).
+
+---
+
 ## Contributing
 
-Contributions are welcome.
+Contributions are welcome. [`CONTRIBUTING.md`](CONTRIBUTING.md) has the local
+setup, the test commands and the commit conventions.
 
 To contribute:
 
