@@ -103,6 +103,8 @@ test("the repository ships the files GitHub expects", () => {
     "README.md",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
+    "RELEASING.md",
+    "SECURITY.md",
     "compose.yaml",
     "compose.dev.yaml",
     "Dockerfile",

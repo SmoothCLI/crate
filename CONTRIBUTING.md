@@ -84,7 +84,7 @@ and guest preferences. It is ignored on purpose, and so are `node_modules/`,
 User-facing docs live in `README.md` (terminal and Docker), `web/README.md` (the
 full web manual) and `MUSICBRAINZ.md` (matching behaviour). Every released
 version needs an entry in `CHANGELOG.md`; the `Unreleased` section is where a
-change lands first.
+change lands first. The release steps are in [`RELEASING.md`](RELEASING.md).
 
 ## Security
 
