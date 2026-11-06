@@ -76,12 +76,21 @@ contact line, and picks a username and a password; that also signs them in. Only
 Change it later at `/admin`; if you lose it, see
 [Losing the password](#losing-the-password).
 
-For development, run the API and Vite side by side:
+For development, `npm run dev` starts both halves from the working tree:
 
 ```sh
-node server/index.mjs     # API on 8080
-npm run dev               # UI on 5173, /api proxied to 8080
+npm run dev               # API on 8081, UI on http://localhost:5173
 ```
+
+Edits under `src/` hot-reload in the browser and edits under `server/` restart
+the API, so a change can be looked at before it is committed - this path never
+builds an image or touches a release. The API takes 8081 rather than 8080
+because the published container usually holds 8080 on the same machine; set
+`AUDIODL_PORT` to move it, `AUDIODL_DATA` to use a throwaway data folder, and
+`CRATE_UI_PORT` for the Vite port. The dev API listens on loopback and uses
+`web/data`, seeded with the password `crate-dev`, so it starts signed in rather
+than at the setup wizard. To run the halves yourself, use `npm run dev:api` and
+`npm run dev:ui`.
 
 ## Tests
 

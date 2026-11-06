@@ -29,9 +29,17 @@ npm run build
 AUDIODL_PASSWORD=dev node server/index.mjs    # http://localhost:8080
 ```
 
-`npm run dev` runs Vite on port 5173 and proxies `/api` to port 8080, so keep
-the server running in another terminal. The admin page is at `/admin`, and it
-shows the resolved paths, the queue and any diagnostics.
+`npm run dev` starts both halves from the working tree: the API on port 8081
+and Vite on 5173 with `/api` proxied to it. Edits under `web/src` reload in the
+browser and edits under `web/server` restart the API, so an uncommitted change
+is one save away from the page; nothing is built, tagged or pushed. The API
+takes 8081 because the published container usually holds 8080, and
+`AUDIODL_DATA` points it at a different data folder if you would rather not
+share the real one. The default folder is `web/data`, seeded with the password
+`crate-dev` so the setup wizard stays out of the way; the dev API listens on
+loopback only. `npm run dev:api` and `npm run dev:ui` start the halves
+separately. The admin page is at `/admin`, and it shows the resolved paths, the
+queue and any diagnostics.
 
 ## Tests
 
