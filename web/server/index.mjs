@@ -47,7 +47,7 @@ const RELEASES_URL = `${PROJECT_URL}/releases`;
 const RELEASES_API =
   process.env.AUDIODL_RELEASE_API || "https://api.github.com/repos/SmoothCLI/crate/releases/latest";
 const UPDATE_EVERY = 6 * 60 * 60 * 1000;
-const releaseCheck = { latest: "", url: "", at: 0, checking: false };
+const releaseCheck = { latest: "", url: "", notes: "", at: 0, checking: false };
 
 // Numeric on purpose: a string compare puts 3.10 below 3.9. A leading "v" and
 // anything after the numbers are ignored, so "v3.2.0" and "3.2.0-beta" both
@@ -88,6 +88,9 @@ async function checkRelease() {
       const tag = String(data.tag_name || "").trim();
       releaseCheck.latest = tag.replace(/^v/i, "");
       releaseCheck.url = String(data.html_url || "") || RELEASES_URL;
+      // Enough to read in the hint without shipping a whole changelog; the
+      // release page keeps the complete notes.
+      releaseCheck.notes = String(data.body || "").slice(0, 4000);
     }
   } catch {
     // Offline, rate-limited or GitHub is down: keep the previous answer.
@@ -1302,6 +1305,37 @@ app.get("/api/time", (_req, res) => {
   res.json({ now: Date.now() });
 });
 
+// For uptime monitors and the image healthcheck. Public on purpose, and shaped
+// so it can be scraped: enough to tell a busy instance from a broken one, and
+// nothing about the library path, sessions or credentials.
+app.get("/api/health", (_req, res) => {
+  let freeBytes = null;
+  let totalBytes = null;
+  let libraryWritable = false;
+  try {
+    const stat = fs.statfsSync(settings.musicDir);
+    freeBytes = Number(stat.bavail) * Number(stat.bsize);
+    totalBytes = Number(stat.blocks) * Number(stat.bsize);
+    fs.accessSync(settings.musicDir, fs.constants.W_OK);
+    libraryWritable = true;
+  } catch {
+    // A missing or read-only library is reported, not thrown: the server still
+    // answers so a monitor can say what is wrong.
+  }
+  res.json({
+    ok: libraryWritable,
+    version: VERSION,
+    uptimeSeconds: Math.round(process.uptime()),
+    setupNeeded,
+    queue: {
+      running: jobs.filter((job) => job.state === "running").length,
+      queued: jobs.filter((job) => job.state === "queued").length,
+      total: jobs.length,
+    },
+    library: { writable: libraryWritable, freeBytes, totalBytes },
+  });
+});
+
 // First run: no password has been chosen yet. The page redirects here, the
 // owner picks a name and a username along with the password, and the same
 // settings.json that /api/settings writes holds all of it from then on.
@@ -1646,6 +1680,7 @@ app.get("/api/settings", (req, res) => {
             current: VERSION,
             latest: releaseCheck.latest,
             url: releaseCheck.url || RELEASES_URL,
+            notes: releaseCheck.notes,
             available: Boolean(releaseCheck.latest) && isNewer(releaseCheck.latest, VERSION),
             checkedAt: releaseCheck.at,
           }

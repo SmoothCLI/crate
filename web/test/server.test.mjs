@@ -374,6 +374,21 @@ test("turning guest access off ends guest sessions, not just new ones", async ()
   assert.equal((await call("/api/guest", { method: "POST" })).status, 200);
 });
 
+test("health answers without a session and names the release", async () => {
+  const res = await call("/api/health");
+  assert.equal(res.status, 200);
+  const health = await json(res);
+  assert.equal(health.version.length > 0, true);
+  assert.equal(typeof health.ok, "boolean");
+  assert.equal(typeof health.queue.running, "number");
+  assert.equal(typeof health.queue.queued, "number");
+  assert.equal(typeof health.library.writable, "boolean");
+  // A monitor needs the numbers, not the machine's secrets or its paths.
+  assert.equal("musicDir" in health, false);
+  assert.equal("passwordHash" in health, false);
+  assert.equal("binary" in health, false);
+});
+
 test("the page carries a preview card for link unfurlers", async () => {
   const page = await call("/");
   const html = await page.text();

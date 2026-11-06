@@ -157,6 +157,8 @@ export type UpdateInfo = {
   latest: string;
   // The release page, or the releases list when the check had no answer yet.
   url: string;
+  // The release body, trimmed; empty until a check succeeds.
+  notes: string;
   available: boolean;
   checkedAt: number;
 };

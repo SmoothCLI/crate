@@ -183,8 +183,21 @@ export function Dashboard({ stats: tally }: { stats: GuestTally }) {
           <a className="btn btn-ghost px-2 text-[12.5px]" href="/">
             Queue
           </a>
-          <a className="btn btn-ghost px-2" href="/admin" aria-label="Settings" title="Settings">
+          <a
+            className="btn btn-ghost relative px-2"
+            href="/admin"
+            aria-label={settings?.update?.available ? "Settings (update available)" : "Settings"}
+            title={settings?.update?.available ? "Settings - a newer release is available" : "Settings"}
+          >
             <GearIcon />
+            {settings?.update?.available && (
+              <span
+                data-update-badge
+                aria-hidden="true"
+                className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full"
+                style={{ background: "var(--accent-strong)" }}
+              />
+            )}
           </a>
         </div>
       </div>

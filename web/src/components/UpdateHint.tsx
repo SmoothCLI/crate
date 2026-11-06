@@ -2,30 +2,33 @@ import { useState } from "react";
 import type { UpdateInfo } from "../types";
 import { CloseIcon, SparkleIcon } from "./Icons";
 
-// Per browser, per release: dismissing 3.2.0 keeps it quiet on this device until
-// something newer is published. The stored value is the version that was
-// dismissed, so an old dismissal never silences a new release.
+// Both values store the release they apply to, so neither can silence a newer
+// release: dismissing 3.2.0 hides that version, skipping it hides it for good,
+// and the next release is shown either way.
 const DISMISS_KEY = "audiodl-update-dismissed";
+const SKIP_KEY = "audiodl-update-skipped";
 
-function readDismissed(): string {
+function readStored(key: string): string {
   try {
-    return localStorage.getItem(DISMISS_KEY) ?? "";
+    return localStorage.getItem(key) ?? "";
   } catch {
     return "";
   }
 }
 
 export function UpdateHint({ update, className = "" }: { update?: UpdateInfo; className?: string }) {
-  const [dismissed, setDismissed] = useState(readDismissed);
-  if (!update?.available || !update.latest || dismissed === update.latest) return null;
+  const [dismissed, setDismissed] = useState(() => readStored(DISMISS_KEY));
+  const [skipped, setSkipped] = useState(() => readStored(SKIP_KEY));
+  if (!update?.available || !update.latest) return null;
+  if (dismissed === update.latest || skipped === update.latest) return null;
 
-  const dismiss = () => {
+  const remember = (key: string, done: (value: string) => void) => {
     try {
-      localStorage.setItem(DISMISS_KEY, update.latest);
+      localStorage.setItem(key, update.latest);
     } catch {
-      // Private mode: the dismissal still holds for this visit.
+      // Private mode: the choice still holds for this visit.
     }
-    setDismissed(update.latest);
+    done(update.latest);
   };
 
   return (
@@ -51,7 +54,7 @@ export function UpdateHint({ update, className = "" }: { update?: UpdateInfo; cl
       </span>
       <button
         type="button"
-        onClick={dismiss}
+        onClick={() => remember(DISMISS_KEY, setDismissed)}
         className="ml-auto rounded-md p-1"
         style={{ color: "var(--ink-3)" }}
         aria-label="Dismiss update notice"
@@ -59,6 +62,27 @@ export function UpdateHint({ update, className = "" }: { update?: UpdateInfo; cl
       >
         <CloseIcon size={12} />
       </button>
+
+      <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px]">
+        <button
+          type="button"
+          onClick={() => remember(SKIP_KEY, setSkipped)}
+          className="underline underline-offset-2"
+          style={{ color: "var(--ink-3)" }}
+        >
+          Skip this version
+        </button>
+        {update.notes && (
+          <details className="min-w-0">
+            <summary className="cursor-pointer select-none" style={{ color: "var(--ink-3)" }}>
+              What&apos;s new
+            </summary>
+            <p className="mt-1 whitespace-pre-wrap" style={{ color: "var(--ink-3)" }}>
+              {update.notes}
+            </p>
+          </details>
+        )}
+      </div>
     </div>
   );
 }

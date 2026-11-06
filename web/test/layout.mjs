@@ -255,6 +255,7 @@ before(async () => {
       JSON.stringify({
         tag_name: "v9.9.9",
         html_url: "https://github.com/SmoothCLI/crate/releases/tag/v9.9.9",
+        body: "Small fixes and a faster queue.",
       }),
     );
   });
@@ -483,8 +484,14 @@ test("the owner sees the update hint on the queue and the overview", async () =>
       await hint.getByRole("link", { name: "Release notes" }).getAttribute("href"),
       "https://github.com/SmoothCLI/crate/releases/tag/v9.9.9",
     );
+    // The release body is readable without leaving the page.
+    assert.equal(await hint.locator("details").count(), 1);
+    assert.match(await hint.innerText(), /What's new/);
     assert.deepEqual(await audit(page), [], route);
   }
+
+  // The gear in the header carries a dot while an update is waiting.
+  assert.equal(await page.locator("[data-update-badge]").count(), 1);
 
   // Dismissing is per browser and per release: the page stays quiet after a
   // reload, but a newer release is not silenced by an older dismissal.
@@ -499,8 +506,20 @@ test("the owner sees the update hint on the queue and the overview", async () =>
 
   await page.evaluate(() => localStorage.setItem("audiodl-update-dismissed", "0.0.1"));
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.getByRole("status", { name: "Update available" }).waitFor({ timeout: 10_000 });
+  const again = page.getByRole("status", { name: "Update available" });
+  await again.waitFor({ timeout: 10_000 });
   assert.deepEqual(await audit(page), []);
+
+  // Skipping is the lasting version of the same choice.
+  await again.getByRole("button", { name: "Skip this version" }).click();
+  await again.waitFor({ state: "detached" });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(700);
+  assert.equal(await page.getByRole("status", { name: "Update available" }).count(), 0);
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem("audiodl-update-skipped")),
+    "9.9.9",
+  );
 
   await context.close();
 });
@@ -516,6 +535,7 @@ test("a guest never sees the update hint", async () => {
   await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(900);
   assert.equal(await page.getByRole("status", { name: "Update available" }).count(), 0);
+  assert.equal(await page.locator("[data-update-badge]").count(), 0);
   assert.deepEqual(await audit(page), []);
   await context.close();
 });
