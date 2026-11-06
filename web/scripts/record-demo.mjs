@@ -190,8 +190,22 @@ function seed() {
     path.join(DATA, "stats.json"),
     JSON.stringify({ tracks: 96, guests: ["g1", "g2", "g3", "g4", "g5", "g6", "g7"] }),
   );
+  // The overview asks the script for its version, and a stub that sleeps
+  // through that leaves the page on its loading line for the whole shot.
   const bin = path.join(DATA, "fake-dlAudio.sh");
-  fs.writeFileSync(bin, "#!/bin/sh\nsleep 600\n", { mode: 0o755 });
+  fs.writeFileSync(
+    bin,
+    [
+      "#!/bin/sh",
+      'case "$*" in',
+      '  *--version*) echo "dlAudio.sh 3.4.0"; exit 0;;',
+      "esac",
+      // Anything else is a download this demo never finishes.
+      "sleep 600",
+      "",
+    ].join("\n"),
+    { mode: 0o755 },
+  );
   return { bin, files };
 }
 
