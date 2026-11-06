@@ -1,9 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api";
 import type { LibraryBrowse, LibrarySort, LibraryTrack } from "../types";
 import { formatBytes } from "../lib/format";
 import { Artwork } from "./Artwork";
-import { ArrowIcon, CloseIcon, DiscIcon, PlayIcon } from "./Icons";
+import {
+  ArrowIcon,
+  CloseIcon,
+  DiscIcon,
+  MuteIcon,
+  PauseIcon,
+  PlayIcon,
+  VolumeIcon,
+} from "./Icons";
 
 const SORTS: { value: LibrarySort; label: string }[] = [
   { value: "track", label: "Album order" },
@@ -30,6 +38,13 @@ export function LibraryPage() {
   // searching on does not cut the queue off mid-album.
   const [queue, setQueue] = useState<LibraryTrack[]>([]);
   const [index, setIndex] = useState(-1);
+  // The bar drives a hidden <audio> rather than wearing the browser's own
+  // controls, so it has to hold what those would have told it.
+  const [time, setTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
   const seq = useRef(0);
   const audio = useRef<HTMLAudioElement>(null);
 
@@ -76,13 +91,38 @@ export function LibraryPage() {
   }, [browse, artist, query]);
 
   // The click that picked the row is still the user gesture, so this is allowed
-  // to start on its own.
+  // to start on its own. A new track starts from zero: the browser keeps the
+  // last position otherwise, and the bar would open on the previous song's
+  // minute.
   useEffect(() => {
     if (!playing) return;
+    setTime(0);
+    setDuration(0);
     audio.current?.play().catch(() => {
-      /* the browser refused; its own controls still work */
+      /* the browser refused; the bar's own button still works */
     });
   }, [playing]);
+
+  const togglePlay = () => {
+    const element = audio.current;
+    if (!element) return;
+    if (element.paused) element.play().catch(() => {});
+    else element.pause();
+  };
+
+  const seekTo = (value: number) => {
+    const element = audio.current;
+    if (element && Number.isFinite(element.duration)) element.currentTime = value;
+    setTime(value);
+  };
+
+  const changeVolume = (value: number) => {
+    setVolume(value);
+    setMuted(value === 0);
+    if (!audio.current) return;
+    audio.current.volume = value;
+    audio.current.muted = value === 0;
+  };
 
   const startAt = (list: LibraryTrack[], track: LibraryTrack) => {
     const at = list.findIndex((entry) => entry.path === track.path);
@@ -101,6 +141,7 @@ export function LibraryPage() {
   const artists = browse?.artists ?? [];
   const albums = browse?.albums ?? [];
   const tracks = browse?.tracks ?? [];
+  const currentAlbum = album ? (albums.find((entry) => entry.name === album) ?? null) : null;
   const bytes = artists.reduce((sum, entry) => sum + entry.bytes, 0);
 
   return (
@@ -115,26 +156,23 @@ export function LibraryPage() {
         }}
       >
         <div className="mx-auto flex h-14 max-w-[1080px] items-center gap-2.5 px-5">
-          <a
-            className="btn btn-ghost px-2"
-            href="/"
-            aria-label="Back to the queue"
-            title="Back to the queue"
-          >
-            <ArrowIcon className="rotate-180" />
-          </a>
-          <span className="truncate text-[14px] font-semibold tracking-[0.01em]">Library</span>
-          {browse && (
-            <span
-              className="mono hidden truncate sm:inline"
-              style={{ color: "var(--ink-3)", fontSize: "11px" }}
-            >
-              {browse.total} {browse.total === 1 ? "track" : "tracks"}
-              {artist ? ` · ${artist}` : ""}
-              {album ? ` · ${album}` : ""}
-            </span>
-          )}
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="truncate text-[14px] font-semibold tracking-[0.01em]">Library</span>
+            {browse && (
+              <span
+                className="mono hidden truncate sm:inline"
+                style={{ color: "var(--ink-3)", fontSize: "11px" }}
+              >
+                {browse.total} {browse.total === 1 ? "track" : "tracks"}
+                {artist ? ` · ${artist}` : ""}
+                {album ? ` · ${album}` : ""}
+              </span>
+            )}
+          </div>
           <div className="ml-auto flex items-center gap-1">
+            <a className="btn btn-ghost px-2 text-[12.5px]" href="/" title="Back to the queue">
+              Queue
+            </a>
             <a className="btn btn-ghost px-2 text-[12.5px]" href="/admin#library" title="Health and duplicates">
               Health
             </a>
@@ -281,17 +319,37 @@ export function LibraryPage() {
                 </div>
               ) : (
                 <>
-                  {album !== null && (
-                    <button
-                      type="button"
-                      className="tag"
-                      onClick={() => setAlbum(null)}
-                      title="Show every album again"
-                    >
-                      <CloseIcon size={11} />
-                      {album}
-                    </button>
-                  )}
+                  {album !== null ? (
+                    // One album in view means the rest are noise: the grid gives
+                    // way to the album itself, and the arrow is the way out of it.
+                    <div className="card flex items-center gap-3 p-2.5">
+                      <button
+                        type="button"
+                        className="btn btn-ghost h-8 w-8 shrink-0 rounded-full p-0"
+                        onClick={() => setAlbum(null)}
+                        aria-label="All albums"
+                        title="All albums"
+                      >
+                        <ArrowIcon className="rotate-180" />
+                      </button>
+                      <Artwork
+                        src={currentAlbum?.dir ? api.libraryCover(currentAlbum.dir) : undefined}
+                        title={album}
+                        className="h-11 w-11 rounded-[8px]"
+                        initialClassName="text-[14px] font-medium"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium">{album}</span>
+                        <span
+                          className="block truncate text-[11px]"
+                          style={{ color: "var(--ink-3)" }}
+                        >
+                          {tracks.length} {tracks.length === 1 ? "track" : "tracks"}
+                          {currentAlbum ? ` · ${formatBytes(currentAlbum.bytes)}` : ""}
+                        </span>
+                      </span>
+                    </div>
+                  ) : (
                   <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3" aria-label="Albums">
                     {albums.map((entry) => {
                       const active = album === entry.name;
@@ -328,6 +386,7 @@ export function LibraryPage() {
                       );
                     })}
                   </div>
+                  )}
                   <TrackList
                     tracks={tracks}
                     playing={playing}
@@ -343,12 +402,12 @@ export function LibraryPage() {
 
       {playing && (
         <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-3">
-          <div className="card mx-auto max-w-[1080px] px-3 py-2.5">
+          <div className="card mx-auto max-w-[1080px] px-3.5 py-3" data-player>
             <div className="flex items-center gap-3">
               <Artwork
                 src={api.libraryCover(playing.dir)}
                 title={playing.album || playing.title}
-                className="h-10 w-10 rounded-[7px]"
+                className="h-11 w-11 rounded-[8px]"
                 initialClassName="text-[13px] font-medium"
               />
               <div className="min-w-0 flex-1">
@@ -374,7 +433,8 @@ export function LibraryPage() {
                 <CloseIcon />
               </button>
             </div>
-            <div className="mt-2 flex items-center gap-2">
+
+            <div className="mt-2.5 flex items-center gap-2.5">
               <button
                 className="btn btn-ghost h-8 w-8 shrink-0 rounded-full p-0"
                 onClick={() => step(-1)}
@@ -384,18 +444,14 @@ export function LibraryPage() {
               >
                 <ArrowIcon className="rotate-180" />
               </button>
-              <audio
-                ref={audio}
-                controls
-                autoPlay
-                preload="metadata"
-                src={api.libraryTrack(playing.path)}
-                onEnded={() => {
-                  if (index + 1 < queue.length) setIndex(index + 1);
-                }}
-                className="h-9 min-w-0 flex-1"
-                aria-label={`Playing ${playing.title}`}
-              />
+              <button
+                className="btn btn-primary h-9 w-9 shrink-0 rounded-full p-0"
+                onClick={togglePlay}
+                aria-label={paused ? "Resume" : "Pause"}
+                title={paused ? "Resume" : "Pause"}
+              >
+                {paused ? <PlayIcon size={14} /> : <PauseIcon size={14} />}
+              </button>
               <button
                 className="btn btn-ghost h-8 w-8 shrink-0 rounded-full p-0"
                 onClick={() => step(1)}
@@ -405,12 +461,95 @@ export function LibraryPage() {
               >
                 <ArrowIcon />
               </button>
+
+              <span className="num shrink-0 text-[10.5px]" style={{ color: "var(--ink-3)" }}>
+                {clock(time)}
+              </span>
+              <input
+                type="range"
+                className="seek min-w-0 flex-1"
+                min={0}
+                max={duration || 0}
+                step={0.5}
+                value={Math.min(time, duration || 0)}
+                onChange={(event) => seekTo(Number(event.target.value))}
+                style={
+                  {
+                    "--seek-fill": `${duration ? (Math.min(time, duration) / duration) * 100 : 0}%`,
+                  } as CSSProperties
+                }
+                disabled={!duration}
+                aria-label="Seek"
+              />
+              <span className="num shrink-0 text-[10.5px]" style={{ color: "var(--ink-3)" }}>
+                {clock(duration)}
+              </span>
+
+              <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
+                <button
+                  className="btn btn-ghost h-8 w-8 rounded-full p-0"
+                  onClick={() => {
+                    const next = !muted;
+                    setMuted(next);
+                    if (audio.current) audio.current.muted = next;
+                  }}
+                  aria-label={muted ? "Unmute" : "Mute"}
+                  title={muted ? "Unmute" : "Mute"}
+                >
+                  {muted || volume === 0 ? <MuteIcon /> : <VolumeIcon />}
+                </button>
+                <input
+                  type="range"
+                  className="seek w-[64px]"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={muted ? 0 : volume}
+                  onChange={(event) => changeVolume(Number(event.target.value))}
+                  style={
+                    { "--seek-fill": `${(muted ? 0 : volume) * 100}%` } as CSSProperties
+                  }
+                  aria-label="Volume"
+                />
+              </div>
             </div>
+
+            <audio
+              ref={audio}
+              autoPlay
+              preload="metadata"
+              src={api.libraryTrack(playing.path)}
+              onLoadedMetadata={(event) => {
+                const value = event.currentTarget.duration;
+                setDuration(Number.isFinite(value) ? value : 0);
+                event.currentTarget.volume = volume;
+                event.currentTarget.muted = muted;
+              }}
+              onDurationChange={(event) => {
+                const value = event.currentTarget.duration;
+                setDuration(Number.isFinite(value) ? value : 0);
+              }}
+              onTimeUpdate={(event) => setTime(event.currentTarget.currentTime)}
+              onPlay={() => setPaused(false)}
+              onPause={() => setPaused(true)}
+              onEnded={() => {
+                if (index + 1 < queue.length) setIndex(index + 1);
+                else setPaused(true);
+              }}
+              className="hidden"
+            />
           </div>
         </div>
       )}
     </div>
   );
+}
+
+// The bar reads as a clock, not as a duration field: "3:07", never "187".
+function clock(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "0:00";
+  const total = Math.floor(seconds);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
 function TrackList({
@@ -445,20 +584,30 @@ function TrackList({
             }}
             aria-current={active ? "true" : undefined}
           >
-            <Artwork
-              src={api.libraryCover(track.dir)}
-              title={track.album || track.title}
-              className="h-9 w-9 rounded-[7px]"
-              initialClassName="text-[11px] font-medium"
-            />
+            {/* The cover is the play control: a second triangle next to it was
+                a row of two nearly identical buttons, and the art is the
+                bigger target anyway. It only shows the triangle on hover, so
+                a list of covers stays a list of covers. */}
             <button
               type="button"
-              className="btn btn-ghost h-8 w-8 shrink-0 rounded-full p-0"
+              className="group relative h-9 w-9 shrink-0 overflow-hidden rounded-[7px] border-0 bg-transparent p-0"
               onClick={() => onPlay(track)}
               aria-label={`Play ${track.title}`}
               title="Play"
             >
-              <PlayIcon />
+              <Artwork
+                src={api.libraryCover(track.dir)}
+                title={track.album || track.title}
+                className="h-full w-full"
+                initialClassName="text-[11px] font-medium"
+              />
+              <span
+                className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+                style={{ background: "rgb(0 0 0 / 42%)" }}
+                aria-hidden="true"
+              >
+                <PlayIcon size={12} className="text-white" />
+              </span>
             </button>
             <div className="min-w-0 flex-1">
               <div className="truncate text-[13px]">{track.title}</div>

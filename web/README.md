@@ -567,6 +567,11 @@ seconds later.
   starts before the whole file is read. Only the owner may ask for it, only audio
 extensions are served, and the resolved path must sit inside the music folder -
   a path outside it is a 404, not a file.
+- **The player bar** is Crate's own, not the browser's `<audio controls>`: the
+  cover, previous/play/next, a seek slider with the elapsed and total time, a
+  mute button and a volume slider, all driving a hidden `<audio>`. The native
+  controls change height and shade in every browser and cannot show the album
+  art, which is most of what the bar is for.
 - **The queue** is whatever list play was pressed on: next, previous and the end
   of a track move through it, so an album plays straight through. Searching on
   while it plays does not cut it off - the queue is a snapshot of the list from

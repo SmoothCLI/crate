@@ -226,6 +226,61 @@ body {
   cursor: not-allowed;
 }
 
+/* The player bar wants its own slider: the native control is a different height
+   and shade in every browser, and a 4px fill has to read at a glance. */
+.seek {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.seek:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.seek::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--ink) var(--seek-fill, 0%),
+    var(--surface-3) var(--seek-fill, 0%)
+  );
+}
+
+.seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  margin-top: -3.5px;
+  border-radius: 999px;
+  background: var(--ink);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 35%);
+}
+
+.seek::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.seek::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--ink);
+}
+
+.seek::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

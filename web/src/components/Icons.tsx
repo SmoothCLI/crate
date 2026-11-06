@@ -166,6 +166,33 @@ export function PlayIcon({ size = 13, className }: IconProps) {
   );
 }
 
+export function PauseIcon({ size = 13, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <rect x="6" y="4.4" width="2.8" height="11.2" rx="1" fill="currentColor" stroke="none" />
+      <rect x="11.2" y="4.4" width="2.8" height="11.2" rx="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function VolumeIcon({ size = 15, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M3.6 8h2.7L9.6 5.2v9.6L6.3 12H3.6z" />
+      <path d="M12.2 7.4a3.6 3.6 0 0 1 0 5.2M14.4 5.5a6.6 6.6 0 0 1 0 9" opacity="0.7" />
+    </svg>
+  );
+}
+
+export function MuteIcon({ size = 15, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M3.6 8h2.7L9.6 5.2v9.6L6.3 12H3.6z" />
+      <path d="M12.6 8.2l3.6 3.6M16.2 8.2l-3.6 3.6" />
+    </svg>
+  );
+}
+
 export function DownloadIcon({ size = 14, className }: IconProps) {
   return (
     <svg {...base(size)} className={className}>

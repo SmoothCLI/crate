@@ -541,6 +541,36 @@ test("a guest never sees the update hint", async () => {
   await context.close();
 });
 
+// The player bar is fixed to the bottom and only exists while something is
+// playing, so the page audit above never sees it. It gets its own check at the
+// narrowest width.
+test("the library player bar fits a phone and drives a hidden audio element", async () => {
+  const context = await open({ width: 390, height: 844 });
+  const page = await context.newPage();
+  await login(page);
+
+  await page.goto(`${BASE}/library`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /Lib Artist/ }).first().click();
+  await page.waitForTimeout(700);
+  // The cover is the play control now, so this also proves the row's button is
+  // the one over the artwork and not a separate triangle.
+  await page.getByRole("button", { name: "Play Known Song" }).click();
+
+  const bar = page.locator("[data-player]");
+  await bar.waitFor({ timeout: 5000 });
+  assert.deepEqual(await audit(page), []);
+  assert.equal(await page.getByRole("slider", { name: "Seek" }).count(), 1);
+  assert.equal(
+    await page.locator("[data-player] audio[controls]").count(),
+    0,
+    "the browser's own controls are not used",
+  );
+
+  await page.getByRole("button", { name: "Stop playing" }).click();
+  await bar.waitFor({ state: "detached" });
+  await context.close();
+});
+
 test("the sign-in card fits on a phone", async () => {
   const context = await open({ width: 390, height: 844 });
   const page = await context.newPage();
