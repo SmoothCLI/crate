@@ -119,6 +119,30 @@ build the working copy instead:
 docker compose -f compose.dev.yaml up --build
 ```
 
+#### Keeping the image current
+
+`compose.yaml` follows the moving `latest` tag, so a new release is one command:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+The UI tells you when that is worth doing: `/admin` shows the running version next
+to the newest release, and the Settings gear carries a dot while an update waits.
+
+To let the container track releases by itself, start the optional Watchtower
+service once:
+
+```bash
+docker compose --profile auto-update up -d
+```
+
+It checks the registry every 24 hours and recreates `crate` in place when
+`latest` moves, keeping the same volumes, port and settings; old images are
+removed after a successful update. It is opt-in because it mounts the Docker
+socket, which grants root on the host — it is restricted by label to the `crate`
+container only. Stop it with `docker compose --profile auto-update stop watchtower`.
+
 ### From a checkout
 
 Requirements: `bash`, `yt-dlp`, `ffmpeg`, `ffprobe`, ImageMagick, `curl`, `file`,

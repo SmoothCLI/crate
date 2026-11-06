@@ -17,6 +17,10 @@
 #   PUID=1000 / PGID=1000    owner of the files that are written
 #   AUDIODL_PASSWORD=        set the password here instead of using /setup
 #   AUDIODL_GUEST=1          set to 0 to require the password for all downloads
+#
+# To follow new releases automatically, start the optional Watchtower service:
+#
+#   docker compose --profile auto-update up -d
 
 name: crate
 
@@ -25,6 +29,9 @@ services:
     image: ghcr.io/smoothcli/crate:latest
     container_name: crate
     restart: unless-stopped
+    # With --label-enable, Watchtower only recreates containers carrying this.
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
     ports:
       - "${HOST_PORT:-8099}:8080"
     environment:
@@ -35,3 +42,18 @@ services:
     volumes:
       - "${MUSIC_DIR:-/media/music}:/media/music"
       - "${DATA_DIR:-./data}:/app/data"
+
+  # Opt-in, hence the profile: the default `docker compose up -d` stays a plain
+  # app plus nothing else. Once started, Watchtower polls the registry once a day
+  # and recreates `crate` in place when ghcr.io/smoothcli/crate:latest changes,
+  # reusing the same mounts and environment. It runs only for containers labeled
+  # above, but it still mounts the Docker socket, which is root-equivalent on
+  # this host.
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: crate-watchtower
+    profiles: ["auto-update"]
+    restart: unless-stopped
+    command: --interval 86400 --cleanup --label-enable
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

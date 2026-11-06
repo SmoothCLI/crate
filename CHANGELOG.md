@@ -6,6 +6,13 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- An optional Watchtower service in `compose.yaml`, started with
+  `docker compose --profile auto-update up -d`, which recreates the container
+  when a new `latest` image is published. The README explains the pull-based
+  update as well.
+
 ## [3.3.0] - 2026-11-06
 
 A web-UI release: update notices are visible and skippable, the first run is a
