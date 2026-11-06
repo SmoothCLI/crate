@@ -5,27 +5,34 @@ updates:
     directory: /web
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     groups:
       # One pull request for the small bumps, so the queue stays readable.
       minor-and-patch:
         update-types: ["minor", "patch"]
     ignore:
-      # React 19 types and the Radix packages move together; a single major
-      # bump on its own would not typecheck.
-      - dependency-name: "@types/react*"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "react"
+      # Majors move the stack together: Vite 8 needs the React plugin 6 and a
+      # newer TypeScript, Express 5 changes the server's API. Those are
+      # deliberate migrations, not weekly churn, so they are opened by hand.
+      - dependency-name: "*"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ["*"]
 
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 2
+    ignore:
+      # The image tracks a Node LTS. A new major needs the server and the
+      # entrypoint tested, and the Dockerfile is not built on a pull request.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
