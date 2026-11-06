@@ -1,6 +1,7 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import http from "node:http";
 import net from "node:net";
 import { chromium } from "playwright";
 import fs from "node:fs";
@@ -57,6 +58,7 @@ const OWNER_PAGES = [
 
 let child;
 let browser;
+let releaseServer;
 
 function seed() {
   fs.mkdirSync(path.join(MUSIC, "Lib Artist", "Lib Album"), { recursive: true });
@@ -137,7 +139,7 @@ function seed() {
   fs.writeFileSync(BIN, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
 }
 
-async function startServer() {
+async function startServer(releaseApi) {
   child = spawn(process.execPath, [SERVER], {
     env: {
       ...process.env,
@@ -147,6 +149,7 @@ async function startServer() {
       AUDIODL_BIN: BIN,
       MUSIC_DIR: MUSIC,
       AUDIODL_GUEST: "1",
+      AUDIODL_RELEASE_API: releaseApi,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -243,7 +246,21 @@ before(async () => {
   PORT = await freePort();
   BASE = `http://127.0.0.1:${PORT}`;
   seed();
-  await startServer();
+  // A stand-in for GitHub's releases API. The owner's update hint is part of
+  // the page now, so it is audited like the rest of it - without depending on
+  // the network or on what happens to be the latest release today.
+  releaseServer = http.createServer((_req, res) => {
+    res.setHeader("content-type", "application/json");
+    res.end(
+      JSON.stringify({
+        tag_name: "v9.9.9",
+        html_url: "https://github.com/SmoothCLI/crate/releases/tag/v9.9.9",
+      }),
+    );
+  });
+  await new Promise((resolve) => releaseServer.listen(0, "127.0.0.1", resolve));
+  const releaseApi = `http://127.0.0.1:${releaseServer.address().port}/releases/latest`;
+  await startServer(releaseApi);
   await fetch(`${BASE}/api/setup`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -279,6 +296,7 @@ before(async () => {
 after(async () => {
   await browser?.close();
   child?.kill("SIGTERM");
+  releaseServer?.close();
   fs.rmSync(DATA, { recursive: true, force: true });
 });
 
@@ -445,6 +463,28 @@ test("a guest can theme the queue with Catppuccin, and it sticks", async () => {
   assert.equal(reset.canvas, "#eef0f6");
   assert.deepEqual(reset.themeRow, [false, false, false]);
   assert.deepEqual(await audit(page), []);
+
+  await context.close();
+});
+
+// The release hint is only useful if it actually renders, and only for the
+// owner: this walks both owner pages it appears on and checks the link target.
+test("the owner sees the update hint on the queue and the overview", async () => {
+  const context = await open({ width: 390, height: 844 });
+  const page = await context.newPage();
+  await login(page);
+
+  for (const route of ["/", "/dashboard"]) {
+    await page.goto(`${BASE}${route}`, { waitUntil: "domcontentloaded" });
+    const hint = page.getByRole("status", { name: "Update available" });
+    await hint.waitFor({ timeout: 10_000 });
+    assert.match(await hint.innerText(), /Crate 9\.9\.9 is (out|available)/);
+    assert.equal(
+      await hint.getByRole("link", { name: "Release notes" }).getAttribute("href"),
+      "https://github.com/SmoothCLI/crate/releases/tag/v9.9.9",
+    );
+    assert.deepEqual(await audit(page), [], route);
+  }
 
   await context.close();
 });

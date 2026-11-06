@@ -13,8 +13,10 @@ All notable changes to Crate are documented here. The format follows
   UI. `GET /api/me` carries the version and repository URL.
 - The owner is told when a newer release is published: the server checks the
   project's releases in the background every six hours and `/api/settings`
-  carries the result, which the queue renders as a one-line hint with a link to
-  the release notes. Guests never receive the field.
+  carries the result, which the queue, the overview and Settings render as a
+  one-line hint with a link to the release notes. Guests never receive the
+  field, and the browser audit now covers the hint on the queue and the
+  overview with a local stand-in for the releases API.
 
 ## [3.1.1] - 2026-11-06
 

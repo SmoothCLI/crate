@@ -42,6 +42,10 @@ const VERSION = (() => {
 // answer. Unauthenticated GitHub API calls are rate-limited generously enough
 // for one every six hours.
 const RELEASES_URL = `${PROJECT_URL}/releases`;
+// A seam for the layout audit: it points this at a local stand-in so the hint
+// can be tested without the network or depending on what is published today.
+const RELEASES_API =
+  process.env.AUDIODL_RELEASE_API || "https://api.github.com/repos/SmoothCLI/crate/releases/latest";
 const UPDATE_EVERY = 6 * 60 * 60 * 1000;
 const releaseCheck = { latest: "", url: "", at: 0, checking: false };
 
@@ -75,7 +79,7 @@ async function checkRelease() {
   const timer = setTimeout(() => controller.abort(), 8000);
   timer.unref();
   try {
-    const res = await fetch("https://api.github.com/repos/SmoothCLI/crate/releases/latest", {
+    const res = await fetch(RELEASES_API, {
       headers: { accept: "application/vnd.github+json", "user-agent": `crate/${VERSION}` },
       signal: controller.signal,
     });
