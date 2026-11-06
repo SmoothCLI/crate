@@ -128,6 +128,12 @@ docker compose -f compose.dev.yaml up --build
 docker compose pull && docker compose up -d
 ```
 
+`latest` moves only when a version is tagged. Work merged to `main` runs the
+tests and the layout audit and stops there, so a fix you have read about in a
+commit is not in the image until it ships in a release; [CHANGELOG.md](CHANGELOG.md)
+and the [releases](https://github.com/SmoothCLI/crate/releases) page say which one
+that is.
+
 The UI tells you when that is worth doing: `/admin` shows the running version next
 to the newest release, and the Settings gear carries a dot while an update waits.
 
@@ -219,6 +225,21 @@ ARTWORK_SIZE="1000"
 - [`RELEASING.md`](RELEASING.md) — how versions, tags and images are made.
 
 ## Development
+
+Looking at a change needs no build, no image and no release: `npm run dev`
+starts the API and Vite side by side from the working tree, with hot reload.
+Vite reloads `web/src` in place, `node --watch` restarts the server on a
+`web/server` edit, and the runner restarts it when `dlAudio.sh` changes. The API
+takes port 8081 because the published container usually holds 8080, and the dev
+instance keeps its state in `web/data` with the password `crate-dev`.
+
+```bash
+cd web
+npm ci
+npm run dev            # UI on http://localhost:5173, API on 127.0.0.1:8081
+```
+
+The checks below are the set CI runs:
 
 ```bash
 # terminal script tests (needs ffmpeg/jq)
