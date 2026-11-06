@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------------------------------------------------------------- UI build ---
-FROM node:22-bookworm-slim AS ui
+FROM node:25-bookworm-slim AS ui
 
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
@@ -13,7 +13,7 @@ RUN npm run build \
  && npm prune --omit=dev --no-audit --no-fund
 
 # ----------------------------------------------------------------- runtime ---
-FROM node:22-bookworm-slim
+FROM node:25-bookworm-slim
 
 # ffmpeg/ffprobe do the encoding, jq is required by the script's --json mode
 # (which the server drives), python3 runs the yt-dlp release binary and, with
