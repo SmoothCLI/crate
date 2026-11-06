@@ -92,6 +92,28 @@ because the published container usually holds 8080 on the same machine; set
 than at the setup wizard. To run the halves yourself, use `npm run dev:api` and
 `npm run dev:ui`.
 
+## Subsonic API
+
+A read-only subset of the Subsonic API (protocol 1.16.1) is served from `/rest`,
+so a phone or desktop player can browse and stream the library without this UI.
+
+```text
+Server    http://your-host:8099
+Username  admin (or the username chosen at /setup)
+Password  your Crate password
+```
+
+`ping`, `getMusicFolders`, `getIndexes`, `getArtists`, `getArtist`, `getAlbum`,
+`getSong`, `getAlbumList2`, `search3`, `stream`, `download`, `getCoverArt`,
+`getScanStatus` and `getLicense` are implemented; playlists and stars answer
+empty and scrobbles are accepted and forgotten. Token authentication (`t`/`s`)
+is refused with protocol code 41, because only a scrypt hash of the password is
+kept - use the password method, over HTTPS. Both `/rest/name` and
+`/rest/name.view` work, XML is the default and `f=json` gives JSON.
+
+[`docs/subsonic.md`](../docs/subsonic.md) has the endpoint table, curl examples
+and the limits worth knowing before pointing a player at it.
+
 ## Tests
 
 ```sh

@@ -51,7 +51,7 @@ your library.
 </p>
 
 <p align="center">
-  <sub><b>Terminal</b> — the same link inspected, downloaded, normalized and tagged (1.4× speed).</sub>
+  <sub><b>Terminal</b> — the same link inspected, downloaded, normalized and tagged.</sub>
 </p>
 
 ## Quick start
@@ -82,6 +82,7 @@ Prefer to run without Docker? See [From a checkout](#from-a-checkout).
 | **Cover art** | Fetched, resized and embedded — or uploaded/dropped in the web UI, per album or per track. |
 | **A tidy library** | `ARTIST/ALBUM/[NN - ]TITLE.format`, existing files detected, resumable sessions, duplicate fingerprints. |
 | **A library you can open** | `/library` browses artists, albums and tracks with their covers, sorts them, and plays an album straight through — no file manager needed. |
+| **Plays anywhere** | A read-only [Subsonic API](docs/subsonic.md): Symfonium, DSub or Feishin browse and stream the same library without the web UI. |
 | **A queue that survives** | Live stage progress over SSE, retry after a crash, per-host concurrency caps, optional webhook. |
 | **Guests, safely** | Guest downloads are encoded on the server and streamed to the browser; nothing lands in the library. |
 | **Owner tools** | `/admin` for formats, quota, cookies for signed-in sources, diagnostics, 2FA and backups. |
@@ -220,6 +221,7 @@ ARTWORK_SIZE="1000"
 
 - [`web/README.md`](web/README.md) — the queue, `/admin`, formats, guests, cookies, covers, troubleshooting.
 - [`docs/reverse-proxy.md`](docs/reverse-proxy.md) — HTTPS and a public instance with Caddy or nginx, including SSE settings.
+- [`docs/subsonic.md`](docs/subsonic.md) — the read-only Subsonic API: connecting a player, endpoints, limits.
 - [`MUSICBRAINZ.md`](MUSICBRAINZ.md) — matching rules and the artist map.
 - [`CHANGELOG.md`](CHANGELOG.md) — every release.
 - [`RELEASING.md`](RELEASING.md) — how versions, tags and images are made.
