@@ -241,6 +241,14 @@ export function AdminPage() {
   const [totpBusy, setTotpBusy] = useState(false);
   const [totpError, setTotpError] = useState<string | null>(null);
   const [nudge, setNudge] = useState(false);
+  // The Subsonic API's switch and credentials. Both credentials arrive as
+  // plain strings because this page is the one place the owner can read them.
+  const [subsonicOn, setSubsonicOn] = useState(true);
+  const [subsonicKey, setSubsonicKey] = useState("");
+  const [subsonicSecret, setSubsonicSecret] = useState("");
+  const [subsonicKeyReset, setSubsonicKeyReset] = useState(false);
+  const [subsonicSecretReset, setSubsonicSecretReset] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   // The stored URL is never sent back, so a blank input cannot mean "kept":
   // the saved state is shown as a line, and the input only appears on Replace.
   const [webhookEditing, setWebhookEditing] = useState(false);
@@ -271,6 +279,11 @@ export function AdminPage() {
     setWebhookSet(fresh.webhookSet);
     setWebhookHost(fresh.webhookHost);
     setWebhookGuests(fresh.webhookGuests);
+    setSubsonicOn(fresh.subsonic?.enabled ?? true);
+    setSubsonicKey(fresh.subsonic?.key ?? "");
+    setSubsonicSecret(fresh.subsonic?.secret ?? "");
+    setSubsonicKeyReset(false);
+    setSubsonicSecretReset(false);
     setQuota(String(fresh.guestQuota));
     setTwoFactor(fresh.twoFactor);
     setCookies(fresh.cookies);
@@ -318,7 +331,14 @@ export function AdminPage() {
     ) {
       dirty.add("downloads");
     }
-    if (webhook.trim() !== "" || webhookRemove || webhookGuests !== clean.webhookGuests) {
+    if (
+      webhook.trim() !== "" ||
+      webhookRemove ||
+      webhookGuests !== clean.webhookGuests ||
+      subsonicOn !== (settings?.subsonic?.enabled ?? true) ||
+      subsonicKeyReset ||
+      subsonicSecretReset
+    ) {
       dirty.add("system");
     }
     return dirty;
@@ -339,8 +359,22 @@ export function AdminPage() {
     webhook,
     webhookRemove,
     webhookGuests,
+    settings,
+    subsonicOn,
+    subsonicKeyReset,
+    subsonicSecretReset,
   ]);
   const dirty = dirtyTabs.size > 0;
+
+  async function copyText(label: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(label);
+      window.setTimeout(() => setCopied((current) => (current === label ? null : current)), 1600);
+    } catch {
+      setError("Could not copy. Select the text instead.");
+    }
+  }
 
   async function resetTally() {
     setResetBusy(true);
@@ -554,6 +588,9 @@ export function AdminPage() {
         perHost: Number(perHost),
         guestQuota: Number(quota),
         webhookGuests,
+        subsonicEnabled: subsonicOn,
+        ...(subsonicKeyReset ? { subsonicKeyReset: true } : {}),
+        ...(subsonicSecretReset ? { subsonicSecretReset: true } : {}),
         ...(webhookRemove || webhook.trim()
           ? { webhookUrl: webhookRemove ? null : webhook.trim() }
           : {}),
@@ -1507,6 +1544,101 @@ export function AdminPage() {
               {toolError}
             </p>
           )}
+        </Section>
+
+        <Section
+          tab="system"
+          title="Subsonic API"
+          hint="A read-only server for music players - Symfonium, DSub, Feishin and their kin."
+        >
+          <label className="flex items-start gap-2 text-[12.5px]">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={subsonicOn}
+              onChange={(e) => setSubsonicOn(e.target.checked)}
+            />
+            <span>
+              Let players read and stream the library
+              <span className="block text-[11.5px]" style={{ color: "var(--ink-3)" }}>
+                Read-only: no tag writes, stars or playlists. Guests cannot use it, and switching it
+                off closes the endpoint for every client at once.
+              </span>
+            </span>
+          </label>
+
+          <div>
+            <span className="chip">Server</span>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <code className="mono break-all text-[12px]">{`${window.location.origin}/rest`}</code>
+              <button
+                type="button"
+                className="btn shrink-0"
+                onClick={() => copyText("server", `${window.location.origin}/rest`)}
+              >
+                {copied === "server" ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <span className="block mt-1 text-[11.5px]" style={{ color: "var(--ink-3)" }}>
+              Give the player that URL, the username <span className="mono">{username}</span>, and
+              either credential below.
+            </span>
+          </div>
+
+          <div>
+            <span className="chip">API key</span>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <code className="mono break-all text-[12px]">{subsonicKey}</code>
+              <button type="button" className="btn shrink-0" onClick={() => copyText("key", subsonicKey)}>
+                {copied === "key" ? "Copied" : "Copy"}
+              </button>
+              <button
+                type="button"
+                className="btn shrink-0"
+                onClick={() => setSubsonicKeyReset(true)}
+                disabled={subsonicKeyReset}
+              >
+                {subsonicKeyReset ? "New key on save" : "New key"}
+              </button>
+            </div>
+            <span className="block mt-1 text-[11.5px]" style={{ color: "var(--ink-3)" }}>
+              {subsonicKeyReset
+                ? "A new key is generated when you save. The old one stops working immediately."
+                : "Sent as apiKey= instead of a username and password. Regenerating it signs every player out."}
+            </span>
+          </div>
+
+          <div>
+            <span className="chip">Subsonic password</span>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <code className="mono break-all text-[12px]">{subsonicSecret}</code>
+              <button
+                type="button"
+                className="btn shrink-0"
+                onClick={() => copyText("secret", subsonicSecret)}
+              >
+                {copied === "secret" ? "Copied" : "Copy"}
+              </button>
+              <button
+                type="button"
+                className="btn shrink-0"
+                onClick={() => setSubsonicSecretReset(true)}
+                disabled={subsonicSecretReset}
+              >
+                {subsonicSecretReset ? "New password on save" : "New password"}
+              </button>
+            </div>
+            <span className="block mt-1 text-[11.5px]" style={{ color: "var(--ink-3)" }}>
+              {subsonicSecretReset
+                ? "A new password is generated when you save."
+                : "Used with the username above, and the only credential md5 token auth can be checked against. Separate from the web password, and it opens nothing but this API."}
+            </span>
+          </div>
+
+          <p className="text-[11.5px]" style={{ color: "var(--ink-3)" }}>
+            Use HTTPS if this server is reachable from outside: a password in a URL is visible to
+            everything in between.
+          </p>
         </Section>
 
         <Section tab="system" title="Notifications" hint="One message per finished job, on the server.">

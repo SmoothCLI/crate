@@ -576,6 +576,20 @@ settings.webhookUrl =
   typeof settings.webhookUrl === "string" ? webhookFrom(settings.webhookUrl) ?? "" : INITIAL_WEBHOOK_URL;
 settings.webhookGuests =
   typeof settings.webhookGuests === "boolean" ? settings.webhookGuests : INITIAL_WEBHOOK_GUESTS;
+// The Subsonic API has a switch and credentials of its own. The web password
+// is stored only as a scrypt hash, and md5 token auth needs the password
+// itself, so players get a separate password. Neither credential opens the UI.
+function newSubsonicKey() {
+  return randomBytes(18).toString("base64url");
+}
+function cleanSubsonicKey(value) {
+  const key = String(value ?? "").trim();
+  return /^[A-Za-z0-9_-]{16,64}$/.test(key) ? key : "";
+}
+settings.subsonicEnabled = settings.subsonicEnabled !== false;
+settings.subsonicKey = cleanSubsonicKey(settings.subsonicKey) || newSubsonicKey();
+settings.subsonicSecret = cleanSubsonicKey(settings.subsonicSecret) || newSubsonicKey();
+
 delete settings.guestDir; // older files carried a server-side guest folder
 
 // Guests can be switched off from Settings without editing compose; the
@@ -1662,6 +1676,16 @@ function wantsCookies(job) {
   return AUTH_FAILURE.test(`${job.error || ""}\n${(job.log || []).slice(-30).join("\n")}`);
 }
 
+// Owner-only: the switch, the API key and the Subsonic password. A guest never
+// receives any of it, so the settings payload does not leak a credential.
+function subsonicView() {
+  return {
+    enabled: settings.subsonicEnabled,
+    key: settings.subsonicKey,
+    secret: settings.subsonicSecret,
+  };
+}
+
 app.get("/api/settings", (req, res) => {
   const guest = req.auth.role === "guest" ? guestProfile(req.auth.token) : null;
   res.json({
@@ -1702,6 +1726,7 @@ app.get("/api/settings", (req, res) => {
     adminLook: adminLook(),
     // Whether a jar is stored, and nothing about what is in it.
     cookies: req.auth.role === "owner" ? cookiesView() : undefined,
+    subsonic: req.auth.role === "owner" ? subsonicView() : undefined,
     ...webhookView(req.auth.role),
   });
 });
@@ -1879,6 +1904,25 @@ app.put("/api/settings", async (req, res) => {
     sessions.clear();
     saveSessions();
   }
+  if (typeof body.subsonicEnabled === "boolean") settings.subsonicEnabled = body.subsonicEnabled;
+  if (body.subsonicKeyReset === true) settings.subsonicKey = newSubsonicKey();
+  else if (typeof body.subsonicKey === "string" && body.subsonicKey.trim()) {
+    const key = cleanSubsonicKey(body.subsonicKey);
+    if (!key) {
+      res.status(400).json({ error: "An API key is 16–64 letters, digits, dashes or underscores." });
+      return;
+    }
+    settings.subsonicKey = key;
+  }
+  if (body.subsonicSecretReset === true) settings.subsonicSecret = newSubsonicKey();
+  else if (typeof body.subsonicSecret === "string" && body.subsonicSecret.trim()) {
+    const secret = cleanSubsonicKey(body.subsonicSecret);
+    if (!secret) {
+      res.status(400).json({ error: "The Subsonic password is 16–64 letters, digits, dashes or underscores." });
+      return;
+    }
+    settings.subsonicSecret = secret;
+  }
   writeJson(SETTINGS_FILE, settings);
   res.json({
     ok: true,
@@ -1895,6 +1939,7 @@ app.put("/api/settings", async (req, res) => {
     guestQuota: settings.guestQuota,
     guestQuotaUsed: 0,
     ...webhookView("owner"),
+    subsonic: subsonicView(),
   });
 });
 
@@ -2150,6 +2195,69 @@ const LIBRARY_MIME = {
   ".oga": "audio/ogg",
   ".wav": "audio/wav",
 };
+
+// ------------------------------------------------------------- durations
+//
+// A Subsonic client draws a track length, and a folder walk cannot know one
+// without asking a tool. ffprobe is the honest answer, but not on every scan:
+// the result is cached by path and mtime in the data folder, so a file is
+// measured once and only re-measured when it changes. A failed probe caches 0
+// as well, so a broken file is not probed again on every request.
+const DURATION_FILE = path.join(DATA_DIR, "durations.json");
+const durations = readJson(DURATION_FILE, {});
+let durationTimer = null;
+
+function saveDurations() {
+  clearTimeout(durationTimer);
+  durationTimer = setTimeout(() => writeJson(DURATION_FILE, durations), 1500);
+  durationTimer.unref?.();
+}
+
+function knownDuration(file, mtime) {
+  const hit = durations[file];
+  return hit && hit.mtime === mtime ? hit : null;
+}
+
+// A length already on disk, or 0 when nothing has measured this file yet.
+function cachedDuration(file, mtime) {
+  const hit = knownDuration(file, mtime);
+  return hit && Number.isFinite(hit.duration) ? hit.duration : 0;
+}
+
+function probeDuration(file) {
+  const ffprobe = findTool("ffprobe");
+  if (!ffprobe) return Promise.resolve(0);
+  return new Promise((resolve) => {
+    const child = spawn(
+      ffprobe,
+      ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", file],
+      { stdio: ["ignore", "pipe", "ignore"] },
+    );
+    let out = "";
+    const timer = setTimeout(() => child.kill("SIGKILL"), 10_000);
+    child.stdout.on("data", (chunk) => {
+      out += chunk;
+    });
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve(0);
+    });
+    child.on("close", () => {
+      clearTimeout(timer);
+      const value = Number.parseFloat(out.trim());
+      resolve(Number.isFinite(value) && value > 0 ? Math.round(value) : 0);
+    });
+  });
+}
+
+async function durationFor(file, mtime) {
+  const hit = knownDuration(file, mtime);
+  if (hit && Number.isFinite(hit.duration)) return hit.duration;
+  const measured = await probeDuration(file);
+  durations[file] = { mtime, duration: measured };
+  saveDurations();
+  return measured;
+}
 
 const BROWSE_TTL = 20_000;
 const BROWSE_MAX_FILES = 50_000;
@@ -4782,6 +4890,9 @@ mountSubsonic(app, {
   clientIp,
   blockedFor,
   recordFailure,
+  subsonic: subsonicView,
+  durationFor,
+  cachedDuration,
 });
 
 if (fs.existsSync(DIST)) {

@@ -116,6 +116,10 @@ export const api = {
     > & {
       username?: string;
       password?: string;
+      // The Subsonic API: its own switch, and a reset flag per credential.
+      subsonicEnabled?: boolean;
+      subsonicKeyReset?: boolean;
+      subsonicSecretReset?: boolean;
       // null removes the stored webhook; a blank string keeps it.
       webhookUrl?: string | null;
     },

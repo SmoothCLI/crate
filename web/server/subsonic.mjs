@@ -17,6 +17,7 @@
 // The library model comes from the same folder walk the /library page uses, so
 // an album's artist, name and cover cannot disagree between the two views.
 
+import { createHash, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -130,7 +131,12 @@ export function mountSubsonic(app, deps) {
     return { root, items, artists: sorted };
   }
 
-  function songOf(item, root) {
+  // How many ffprobes one response may start. A 200-song search should not
+  // spawn 200 processes to fill a field a client can live without for a moment;
+  // whatever is left over is measured on the next request.
+  let probeBudget = 0;
+
+  async function songOf(item, root) {
     const parent = albumId(item.dir);
     const song = {
       id: songId(item),
@@ -153,10 +159,18 @@ export function mountSubsonic(app, deps) {
     // Not every file carries a track number; an absent attribute reads better
     // than a zero, and both JSON and XML leave it out when it is undefined.
     if (item.track) song.track = item.track;
+    // A length, not a guess: cached from an earlier probe when one exists, and
+    // measured now if this response still has budget for a process.
+    let duration = deps.cachedDuration(item.path, item.mtime);
+    if (!duration && probeBudget > 0) {
+      probeBudget -= 1;
+      duration = await deps.durationFor(item.path, item.mtime);
+    }
+    if (duration > 0) song.duration = duration;
     return song;
   }
 
-  function albumOf(album, root, withSongs = false) {
+  async function albumOf(album, root, withSongs = false) {
     const id = albumId(album.dir);
     const created = album.songs.reduce((newest, item) => Math.max(newest, item.mtime || 0), 0);
     const entry = {
@@ -170,7 +184,7 @@ export function mountSubsonic(app, deps) {
       playCount: 0,
       created: new Date(created || Date.now()).toISOString(),
     };
-    if (withSongs) entry.song = album.songs.map((item) => songOf(item, root));
+    if (withSongs) entry.song = await Promise.all(album.songs.map((item) => songOf(item, root)));
     return entry;
   }
 
@@ -211,37 +225,62 @@ export function mountSubsonic(app, deps) {
 
   // ---------------------------------------------------------------- auth
 
+  // Comparing through a hash keeps the check constant-time for values of any
+  // length, which matters for the secret and the key as much as the password.
+  const same = (a, b) => {
+    const left = createHash("sha256").update(String(a)).digest();
+    const right = createHash("sha256").update(String(b)).digest();
+    return timingSafeEqual(left, right);
+  };
+
   async function authenticate(req) {
+    const config = deps.subsonic();
+    if (!config.enabled) {
+      return { code: 50, message: "The Subsonic API is switched off in Crate's settings." };
+    }
+
+    // An API key is the credential that does not put a password in a URL, so it
+    // is checked first and needs no username.
+    if (req.query.apiKey !== undefined) {
+      if (config.key && same(req.query.apiKey, config.key)) return null;
+      return { code: 44, message: "Invalid API key." };
+    }
+
     // A browser already holding a session is the owner: the same rule the web
     // UI follows, so a player running on this machine needs no second password.
     if (deps.sessionFor(req)?.role === "owner") return null;
 
     const username = deps.username() || "";
     const given = String(req.query.u ?? "").trim();
-    if (!given || given.toLowerCase() !== username.toLowerCase()) {
+    if (!given || !same(given.toLowerCase(), username.toLowerCase())) {
       return { code: 40, message: "Wrong username or password." };
     }
-
-    if (req.query.t && req.query.s) {
-      return {
-        code: 41,
-        message:
-          "Token authentication is not supported: this server keeps only a scrypt hash of the password. Send the password directly over HTTPS (the enc: hex form is accepted).",
-      };
-    }
-
-    const raw = String(req.query.p ?? "");
-    if (!raw) return { code: 10, message: "Missing password." };
 
     const ip = deps.clientIp(req);
     if (deps.blockedFor(ip) > 0) {
       return { code: 40, message: "Too many attempts. Try again in a minute." };
     }
 
+    // Token auth is md5(password + salt). The web password exists only as a
+    // scrypt hash, but the Subsonic password is a separate credential that is
+    // stored, so this works - and it opens nothing but this read-only API.
+    const salt = String(req.query.s ?? "");
+    const token = String(req.query.t ?? "");
+    if (salt && token) {
+      const expected = createHash("md5").update(`${config.secret}${salt}`).digest("hex");
+      if (config.secret && same(expected, token)) return null;
+      deps.recordFailure(ip);
+      return { code: 40, message: "Wrong username or password." };
+    }
+
+    const raw = String(req.query.p ?? "");
+    if (!raw) return { code: 10, message: "Missing password." };
+
     // Clients that do not want to put a password in a URL send it hex-encoded
     // with an `enc:` prefix; that is obfuscation, not encryption, which is why
     // the docs insist on HTTPS.
     const password = raw.startsWith("enc:") ? Buffer.from(raw.slice(4), "hex").toString("utf8") : raw;
+    if (config.secret && password && same(password, config.secret)) return null;
     const stored = deps.passwordHash();
     if (stored && password && (await deps.verifyPassword(password, stored))) return null;
     deps.recordFailure(ip);
@@ -371,7 +410,7 @@ export function mountSubsonic(app, deps) {
       return { artists: { ignoredArticles: IGNORED_ARTICLES, index } };
     },
 
-    getArtist: (req) => {
+    getArtist: async (req) => {
       const name = fromId("a", req.query.id);
       const { artists, root } = library();
       const artist = name ? artists.find((entry) => entry.name === name) : null;
@@ -381,25 +420,25 @@ export function mountSubsonic(app, deps) {
           id: artistId(artist.name),
           name: artist.name,
           albumCount: artist.list.length,
-          album: artist.list.map((album) => albumOf(album, root)),
+          album: await Promise.all(artist.list.map((album) => albumOf(album, root))),
         },
       };
     },
 
-    getAlbum: (req) => {
+    getAlbum: async (req) => {
       const dir = fromId("d", req.query.id);
       const found = dir ? findAlbum(dir) : null;
       if (!found) return { miss: true };
-      return { album: albumOf(found.album, found.root, true) };
+      return { album: await albumOf(found.album, found.root, true) };
     },
 
-    getSong: (req) => {
+    getSong: async (req) => {
       const found = findSong(req.query.id);
       if (!found) return { miss: true };
-      return { song: songOf(found.item, found.root) };
+      return { song: await songOf(found.item, found.root) };
     },
 
-    getAlbumList2: (req) => {
+    getAlbumList2: async (req) => {
       const { artists, root } = library();
       const albums = artists.flatMap((artist) => artist.list);
       const type = String(req.query.type || "newest").toLowerCase();
@@ -427,10 +466,14 @@ export function mountSubsonic(app, deps) {
           // them on a read-only server: an empty list is the honest answer.
           ordered = [];
       }
-      return { albumList2: { album: ordered.slice(offset, offset + size).map((album) => albumOf(album, root)) } };
+      return {
+        albumList2: {
+          album: await Promise.all(ordered.slice(offset, offset + size).map((album) => albumOf(album, root))),
+        },
+      };
     },
 
-    search3: (req) => {
+    search3: async (req) => {
       const query = String(req.query.query ?? "").trim().toLowerCase().slice(0, 120);
       const { artists, root } = library();
       if (!query) return { searchResult3: { artist: [], album: [], song: [] } };
@@ -446,19 +489,28 @@ export function mountSubsonic(app, deps) {
         .map((artist) => ({ id: artistId(artist.name), name: artist.name, albumCount: artist.list.length }));
 
       const albums = artists.flatMap((artist) => artist.list);
-      const foundAlbums = albums
-        .filter((album) => matches(album.name, album.artist))
-        .slice(0, Math.min(20, Number(req.query.albumCount) || 20))
-        .map((album) => albumOf(album, root));
+      const foundAlbums = await Promise.all(
+        albums
+          .filter((album) => matches(album.name, album.artist))
+          .slice(0, Math.min(20, Number(req.query.albumCount) || 20))
+          .map((album) => albumOf(album, root)),
+      );
 
-      const foundSongs = [];
+      const songLimit = Math.min(MAX_SEARCH_SONGS, Number(req.query.songCount) || 20);
+      const songItems = [];
       for (const item of library().items) {
         if (!matches(item.title, unknownArtist(item.artist), unknownAlbum(item.album))) continue;
-        foundSongs.push(songOf(item, root));
-        if (foundSongs.length >= Math.min(MAX_SEARCH_SONGS, Number(req.query.songCount) || 20)) break;
+        songItems.push(item);
+        if (songItems.length >= songLimit) break;
       }
 
-      return { searchResult3: { artist: foundArtists, album: foundAlbums, song: foundSongs } };
+      return {
+        searchResult3: {
+          artist: foundArtists,
+          album: foundAlbums,
+          song: await Promise.all(songItems.map((item) => songOf(item, root))),
+        },
+      };
     },
 
     stream: (req, res) => {
@@ -513,6 +565,7 @@ export function mountSubsonic(app, deps) {
     const paths = [`/rest/${name}`, `/rest/${name}.view`];
     app.get(paths, async (req, res) => {
       try {
+        probeBudget = 60;
         const denied = await authenticate(req);
         if (denied) {
           fail(req, res, denied.code, denied.message);

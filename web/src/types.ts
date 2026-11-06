@@ -195,7 +195,13 @@ export type Settings = {
   adminLook: AdminLook;
   // Owner-only: a newer release, when the last check found one.
   update?: UpdateInfo;
+  // Owner-only: the read-only Subsonic API's switch and its two credentials.
+  subsonic?: SubsonicSettings;
 };
+
+// The API key is sent as `apiKey=`; the password is what a player stores as its
+// password, so md5 token auth can work without exposing the web password.
+export type SubsonicSettings = { enabled: boolean; key: string; secret: string };
 
 // A stored cookie jar, described without its contents: how many sites it
 // covers, how big it is and when it was last written.
