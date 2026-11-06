@@ -486,6 +486,37 @@ test("the owner sees the update hint on the queue and the overview", async () =>
     assert.deepEqual(await audit(page), [], route);
   }
 
+  // Dismissing is per browser and per release: the page stays quiet after a
+  // reload, but a newer release is not silenced by an older dismissal.
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "domcontentloaded" });
+  const hint = page.getByRole("status", { name: "Update available" });
+  await hint.waitFor({ timeout: 10_000 });
+  await hint.getByRole("button", { name: "Dismiss update notice" }).click();
+  await hint.waitFor({ state: "detached" });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(700);
+  assert.equal(await page.getByRole("status", { name: "Update available" }).count(), 0);
+
+  await page.evaluate(() => localStorage.setItem("audiodl-update-dismissed", "0.0.1"));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("status", { name: "Update available" }).waitFor({ timeout: 10_000 });
+  assert.deepEqual(await audit(page), []);
+
+  await context.close();
+});
+
+// The hint is the owner's. A guest's settings carry no release field, and the
+// queue must not render the card even when the server knows a newer version.
+test("a guest never sees the update hint", async () => {
+  const response = await fetch(`${BASE}/api/guest`, { method: "POST" });
+  assert.equal(response.status, 200);
+  const context = await open({ width: 390, height: 844 });
+  await context.addCookies([cookieFrom(response)]);
+  const page = await context.newPage();
+  await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(900);
+  assert.equal(await page.getByRole("status", { name: "Update available" }).count(), 0);
+  assert.deepEqual(await audit(page), []);
   await context.close();
 });
 
