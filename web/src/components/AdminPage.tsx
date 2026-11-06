@@ -23,9 +23,9 @@ import {
   GearIcon,
   KeyIcon,
   PulseIcon,
-  SparkleIcon,
   UsersIcon,
 } from "./Icons";
+import { UpdateHint } from "./UpdateHint";
 import { CookiesDialog } from "./CookiesDialog";
 import { PasswordMeter } from "./PasswordMeter";
 import { QrCode } from "./QrCode";
@@ -757,34 +757,7 @@ export function AdminPage() {
 
         {/* The owner's own page carries the same release hint as the queue, so
             an admin who lives on /admin still sees it. */}
-        {settings.update?.available && (
-          <div
-            className="card mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-[12.5px]"
-            role="status"
-            aria-label="Update available"
-            style={{ color: "var(--ink-2)" }}
-          >
-            <span className="shrink-0" style={{ color: "var(--ink-3)" }}>
-              <SparkleIcon size={14} />
-            </span>
-            <span className="font-medium" style={{ color: "var(--ink)" }}>
-              Crate {settings.update.latest} is available.
-            </span>
-            <span>You are on {settings.update.current}.</span>
-            <a
-              className="underline underline-offset-2"
-              href={settings.update.url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Release notes
-            </a>
-            <span aria-hidden="true">·</span>
-            <span>
-              update with <span className="mono">docker compose pull</span>
-            </span>
-          </div>
-        )}
+        <UpdateHint update={settings.update} className="mb-6" />
 
         <div className="lg:grid lg:grid-cols-[224px_minmax(0,1fr)] lg:items-start lg:gap-6">
           {/* One group per screen: a rail on desktop (sticky, so switching never
@@ -1491,6 +1464,17 @@ export function AdminPage() {
               {diagnostics
                 ? `node ${diagnostics.system.node} · ${diagnostics.system.platform}`
                 : "checking…"}
+            </span>
+            <span style={{ color: "var(--ink-3)" }}>release</span>
+            <span className="mono break-all">
+              {settings.update?.current ?? "unknown"}
+              {settings.update?.latest ? ` · latest ${settings.update.latest}` : " · no release found"}
+            </span>
+            <span style={{ color: "var(--ink-3)" }}>checked</span>
+            <span>
+              {settings.update?.checkedAt
+                ? `release check ${since(settings.update.checkedAt)}`
+                : "not checked yet"}
             </span>
             <span style={{ color: "var(--ink-3)" }}>disk</span>
             <span>

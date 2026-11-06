@@ -24,9 +24,9 @@ import {
   GridIcon,
   KeyIcon,
   SignOutIcon,
-  SparkleIcon,
   UsersIcon,
 } from "./components/Icons";
+import { UpdateHint } from "./components/UpdateHint";
 
 const DRAFT_KEY = "audiodl-draft";
 const NOTIFY_KEY = "audiodl-notify";
@@ -1070,35 +1070,9 @@ export default function App() {
           </section>
         )}
 
-        {/* The one piece of news the owner cannot get from this page: a newer
-            release is out. Quiet, like the guest note, and gone as soon as the
-            image is updated. */}
-        {role === "owner" && settings?.update?.available && (
-          <section
-            className="card flex items-start gap-3 px-4 py-3"
-            role="status"
-            aria-label="Update available"
-          >
-            <span className="mt-0.5 shrink-0" style={{ color: "var(--ink-3)" }}>
-              <SparkleIcon size={16} />
-            </span>
-            <p className="min-w-0 text-[12.5px] leading-relaxed" style={{ color: "var(--ink-2)" }}>
-              <span className="font-medium" style={{ color: "var(--ink)" }}>
-                Crate {settings.update.latest} is out.
-              </span>{" "}
-              This instance runs {settings.update.current}.{" "}
-              <a
-                className="underline underline-offset-2"
-                href={settings.update.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Release notes
-              </a>{" "}
-              · update with <span className="mono">docker compose pull</span>.
-            </p>
-          </section>
-        )}
+        {/* The one piece of news the owner cannot get from the page itself: a
+            newer release. Dismissal is remembered per browser and per release. */}
+        {role === "owner" && <UpdateHint update={settings?.update} />}
 
         {role === "owner" && (
           <CookiesDialog

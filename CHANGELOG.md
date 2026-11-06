@@ -22,6 +22,10 @@ project source, and tells the owner when a newer Crate has been published.
   one-line hint with a link to the release notes. Guests never receive the
   field, and the browser audit now covers the hint on the queue and the
   overview with a local stand-in for the releases API.
+- The release hint can be dismissed for one browser; the dismissal is stored
+  against that release, so the next one still shows.
+- The admin System tab names the running release, the latest one found, and
+  when the last check ran.
 
 ## [3.1.1] - 2026-11-06
 

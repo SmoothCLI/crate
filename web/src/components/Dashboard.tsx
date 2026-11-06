@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { api } from "../api";
 import type { Diagnostics, GuestTally, HistoryEntry, Job, LibraryStats, Settings } from "../types";
 import { formatBytes } from "../lib/format";
-import { AlertIcon, ArrowIcon, GearIcon, SparkleIcon } from "./Icons";
+import { AlertIcon, ArrowIcon, GearIcon } from "./Icons";
+import { UpdateHint } from "./UpdateHint";
 import { EffectsToggle } from "./EffectsToggle";
 
 const DAILY = 14;
@@ -245,34 +246,7 @@ export function Dashboard({ stats: tally }: { stats: GuestTally }) {
 
         {/* The same release hint the queue shows. This page is where an owner
             looks at the machine, so a new version belongs here too. */}
-        {settings?.update?.available && (
-          <div
-            className="card flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-[12.5px]"
-            role="status"
-            aria-label="Update available"
-            style={{ color: "var(--ink-2)" }}
-          >
-            <span className="shrink-0" style={{ color: "var(--ink-3)" }}>
-              <SparkleIcon size={14} />
-            </span>
-            <span className="font-medium" style={{ color: "var(--ink)" }}>
-              Crate {settings.update.latest} is available.
-            </span>
-            <span>You are on {settings.update.current}.</span>
-            <a
-              className="underline underline-offset-2"
-              href={settings.update.url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Release notes
-            </a>
-            <span aria-hidden="true">·</span>
-            <span>
-              update with <span className="mono">docker compose pull</span>
-            </span>
-          </div>
-        )}
+        <UpdateHint update={settings?.update} />
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat
