@@ -190,6 +190,19 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: echo "value=${VERSION%.*}" >> "$GITHUB_OUTPUT"
 
+      # metadata-action infers the OCI version label from the ref, which on a
+      # manual run is a branch name. Use the stamped version when there is one,
+      # the tag name when this is a tag build, and the action's own value for a
+      # plain branch push.
+      - name: Derive the version label
+        id: label
+        run: |
+          v="${{ inputs.version }}"
+          if [ -z "$v" ] && [ "${{ github.ref_type }}" = "tag" ]; then
+            v="${GITHUB_REF_NAME#v}"
+          fi
+          echo "value=$v" >> "$GITHUB_OUTPUT"
+
       - name: Tags and labels
         id: meta
         uses: docker/metadata-action@v6
@@ -209,6 +222,7 @@ jobs:
             org.opencontainers.image.title=Crate
             org.opencontainers.image.description=Terminal music downloader and self-hosted web queue
             org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.version=${{ steps.label.outputs.value }}
 
       - name: Build and push
         uses: docker/build-push-action@v7
