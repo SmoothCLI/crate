@@ -2075,3 +2075,86 @@ test("library playback serves ranges and refuses anything outside the folder", a
     403,
   );
 });
+
+// A cover for an album this app did not download: the picture has to come from
+// the folder itself, because there is no cover cache entry to serve.
+test("library covers come from the album folder and never from outside it", async () => {
+  const ownerCookie = cookieOf(
+    await call("/api/login", {
+      method: "POST",
+      body: { username: "owner", password: "testpassword" },
+    }),
+  );
+  const music = path.join(DATA, "music");
+  const albumDir = path.join(music, "Cover Artist", "Cover Album");
+  fs.mkdirSync(albumDir, { recursive: true });
+  // Numbered so album order and title order disagree, which is what makes the
+  // sort assertion mean something.
+  fs.writeFileSync(path.join(albumDir, "01 - Zebra.m4a"), "x");
+  fs.writeFileSync(path.join(albumDir, "02 - Apple.m4a"), "x");
+  fs.writeFileSync(path.join(albumDir, "cover.jpg"), "jpeg-bytes");
+
+  try {
+    const cover = await fetch(
+      `${BASE}/api/library/cover?dir=${encodeURIComponent(albumDir)}`,
+      { headers: { cookie: ownerCookie } },
+    );
+    assert.equal(cover.status, 200);
+    assert.equal(cover.headers.get("content-type"), "image/jpeg");
+    assert.equal(await cover.text(), "jpeg-bytes");
+
+    // Every track of an album points at one folder, so the browser asks for one
+    // cover per album rather than one per file.
+    const art = encodeURIComponent("Cover Artist");
+    const albumOrder = await json(
+      await call(`/api/library/browse?artist=${art}`, { cookie: ownerCookie }),
+    );
+    const track = albumOrder.tracks.find((entry) => entry.title === "Zebra");
+    assert.equal(track.dir, albumDir, "a track knows the folder its cover lives in");
+    assert.equal(albumOrder.albums[0].dir, albumDir);
+    assert.deepEqual(
+      albumOrder.tracks.map((entry) => entry.title),
+      ["Zebra", "Apple"],
+      "album order follows the numeric prefix",
+    );
+
+    const byTitle = await json(
+      await call(`/api/library/browse?artist=${art}&sort=title`, { cookie: ownerCookie }),
+    );
+    assert.equal(byTitle.sort, "title");
+    assert.deepEqual(byTitle.tracks.map((entry) => entry.title), ["Apple", "Zebra"]);
+
+    // An unknown order falls back to album order rather than an empty list.
+    const unknown = await json(
+      await call(`/api/library/browse?artist=${art}&sort=nonsense`, { cookie: ownerCookie }),
+    );
+    assert.equal(unknown.sort, "track");
+
+    // A folder of audio with no picture has no cover, and neither does a path
+    // outside the library.
+    fs.rmSync(path.join(albumDir, "cover.jpg"));
+    assert.equal(
+      (await call(`/api/library/cover?dir=${encodeURIComponent(albumDir)}`, { cookie: ownerCookie }))
+        .status,
+      404,
+    );
+    for (const outside of ["/etc", path.join(music, "Cover Artist", "cover.jpg")]) {
+      assert.equal(
+        (await call(`/api/library/cover?dir=${encodeURIComponent(outside)}`, { cookie: ownerCookie }))
+          .status,
+        404,
+        `${outside} is not an album folder`,
+      );
+    }
+
+    // The library is the owner's, covers included.
+    const guestCookie = cookieOf(await call("/api/guest", { method: "POST" }));
+    assert.equal(
+      (await call(`/api/library/cover?dir=${encodeURIComponent(albumDir)}`, { cookie: guestCookie }))
+        .status,
+      403,
+    );
+  } finally {
+    fs.rmSync(path.join(music, "Cover Artist"), { recursive: true, force: true });
+  }
+});
