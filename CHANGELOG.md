@@ -6,6 +6,12 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-11-06
+
+A patch release for a first-run failure: the first review on a fresh install
+aborted before it could list a track. It also carries the library browser and
+the optional Watchtower service from the same day.
+
 ### Added
 
 - An optional Watchtower service in `compose.yaml`, started with
@@ -142,7 +148,8 @@ that drives it.
   and the compose files. The downloader keeps its `dlAudio.sh` filename and the
   `AUDIODL_*` environment variables, which the server and the tests refer to.
 
-[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.3.0...HEAD
+[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.3.1...HEAD
+[3.3.1]: https://github.com/SmoothCLI/crate/releases/tag/v3.3.1
 [3.3.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.3.0
 [3.2.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.2.0
 [3.1.1]: https://github.com/SmoothCLI/crate/releases/tag/v3.1.1
