@@ -10,7 +10,8 @@
     "start": "node server/index.mjs",
     "serve": "npm run build && node server/index.mjs",
     "test": "node --test test/*.test.mjs",
-    "test:layout": "node test/layout.mjs"
+    "test:layout": "node test/layout.mjs",
+    "demo": "node scripts/record-demo.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.4",
