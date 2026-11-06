@@ -1,7 +1,12 @@
-# audioDL in a container:
+# Crate in a container:
 #
 #   docker compose up -d                # UI on http://localhost:8099
 #   open http://localhost:8099/setup    # first start asks for a password
+#
+# This file runs the image published by .github/workflows/publish.yml. To build
+# from this checkout instead, use the development file:
+#
+#   docker compose -f compose.dev.yaml up --build
 #
 # Optional overrides (put them in a .env file next to this file, or on the
 # command line: `MUSIC_DIR=/srv/music docker compose up -d`).
@@ -9,21 +14,16 @@
 #   HOST_PORT=8099           host port to publish (8080 is often taken)
 #   MUSIC_DIR=/media/music   host folder mounted as the library
 #   DATA_DIR=./data          settings, saved queue, workspaces, staged files
-#   PUID=1000 / PGID=1000  owner of the files that are written
-#   AUDIODL_PASSWORD=      set the password here instead of using /setup
-#   AUDIODL_GUEST=1        set to 0 to require the password for all downloads
+#   PUID=1000 / PGID=1000    owner of the files that are written
+#   AUDIODL_PASSWORD=        set the password here instead of using /setup
+#   AUDIODL_GUEST=1          set to 0 to require the password for all downloads
 
-name: audiodl
+name: crate
 
 services:
-  audiodl:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    # Published by .github/workflows/publish.yml. `docker compose build` tags
-    # this name locally; `docker compose pull` uses the published one.
-    image: ghcr.io/smoothcli/audio-dl:latest
-    container_name: audiodl
+  crate:
+    image: ghcr.io/smoothcli/crate:latest
+    container_name: crate
     restart: unless-stopped
     ports:
       - "${HOST_PORT:-8099}:8080"

@@ -114,10 +114,18 @@ separate command, so `npm test` stays fast and browser-free.
 
 ## Docker
 
-From the folder that holds `dlAudio.sh` (one level above this one):
+From the folder that holds `dlAudio.sh` (one level above this one), the
+published image is pulled:
 
 ```sh
 docker compose up -d
+```
+
+To build the image from the checkout instead, for example while changing the
+server or the UI:
+
+```sh
+docker compose -f compose.dev.yaml up --build
 ```
 
 The image builds the UI, installs the latest `yt-dlp` release plus `ffmpeg`,
@@ -754,10 +762,10 @@ There is nothing to recover: only the hash exists. Either set
 hash so /setup comes back:
 
 ```sh
-docker compose exec -u root audiodl node -e "const f='/app/data/settings.json';
+docker compose exec -u root crate node -e "const f='/app/data/settings.json';
 const j=JSON.parse(require('fs').readFileSync(f));delete j.passwordHash;
 require('fs').writeFileSync(f,JSON.stringify(j,null,2))"
-docker compose restart audiodl
+docker compose restart crate
 ```
 
 On a bare host, delete `passwordHash` from `web/data/settings.json` and restart.

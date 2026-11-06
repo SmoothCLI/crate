@@ -1,0 +1,27 @@
+# Development build of Crate, with the same ports and mounts as compose.yaml:
+#
+#   docker compose -f compose.dev.yaml up --build
+#
+# The default compose.yaml pulls the published image; this file builds the
+# source in the working directory instead.
+
+name: crate-dev
+
+services:
+  crate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: crate:dev
+    container_name: crate-dev
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8099}:8080"
+    environment:
+      AUDIODL_GUEST: "${AUDIODL_GUEST:-1}"
+      AUDIODL_PASSWORD: "${AUDIODL_PASSWORD:-}"
+      PUID: "${PUID:-1000}"
+      PGID: "${PGID:-1000}"
+    volumes:
+      - "${MUSIC_DIR:-/media/music}:/media/music"
+      - "${DATA_DIR:-./data}:/app/data"
