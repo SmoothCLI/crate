@@ -48,23 +48,21 @@ jobs:
       # The script tests need ffmpeg/ffprobe (a generated tone is encoded and
       # measured) and jq; the runner already ships jq.
       - name: Install ffmpeg
-        # Some runner images already ship ffmpeg/ffprobe. When apt is needed,
-        # a hung mirror should fail the step instead of stalling the job for
-        # the whole workflow timeout.
+        # The runner images usually ship neither binary. apt on the runner's
+        # mirrors has stalled for ten-plus minutes here more than once, so take
+        # a static build from GitHub instead: no package index, no root
+        # install, and curl retries a bad hop on its own.
         run: |
           if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
             ffmpeg -version | head -1
             exit 0
           fi
-          # `apt-get update` is the part that stalls on a bad mirror, so it gets
-          # retries; the install is merely slow (ffmpeg pulls ~66 MB), so it gets
-          # room instead of being killed mid-download.
-          for attempt in 1 2 3; do
-            sudo timeout 240 apt-get -o Acquire::Retries=2 update && break
-            echo "apt-get update attempt $attempt failed, retrying"
-            sleep 5
-          done
-          sudo timeout 1200 apt-get install -y --no-install-recommends ffmpeg
+          url="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
+          curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 20 --max-time 600 "$url" -o /tmp/ffmpeg.tar.xz
+          tar -xJf /tmp/ffmpeg.tar.xz -C /tmp
+          dir="$(find /tmp -maxdepth 1 -type d -name 'ffmpeg-master-latest-linux64-gpl' | head -1)"
+          sudo install -m 0755 "$dir/bin/ffmpeg" "$dir/bin/ffprobe" /usr/local/bin/
+          ffmpeg -version | head -1
 
       - name: Downloader tests
         run: node --test test/*.test.mjs
