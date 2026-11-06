@@ -84,27 +84,67 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The scope check below diffs against the previous commit.
+          fetch-depth: 0
+
+      # Chromium is the slowest thing in CI. Skip the audit when a push cannot
+      # have changed anything it renders, and cache the browser so a run that
+      # does need it only installs the system libraries.
+      - name: Check whether the UI changed
+        id: scope
+        run: |
+          run=true
+          case "${{ github.event_name }}" in
+            push)
+              if [ "${{ github.ref_type }}" = "branch" ]; then
+                if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+                  run=true
+                else
+                  changed=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" || true)
+                  printf '%s\n' "$changed" | grep -qE '^(web/|\.github/workflows/publish\.yml)' || run=false
+                fi
+              fi
+              ;;
+            pull_request)
+              changed=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" || true)
+              printf '%s\n' "$changed" | grep -qE '^(web/|\.github/workflows/publish\.yml)' || run=false
+              ;;
+          esac
+          echo "layout audit: $run"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
+        if: steps.scope.outputs.run == 'true'
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      # No PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD here: this job needs a browser.
+      - name: Cache Chromium
+        if: steps.scope.outputs.run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
       - name: Install web dependencies
+        if: steps.scope.outputs.run == 'true'
         working-directory: web
         run: npm ci --no-audit --no-fund
 
       - name: Install Chromium
+        if: steps.scope.outputs.run == 'true'
         working-directory: web
         run: npx playwright install --with-deps chromium
 
       - name: Build UI
+        if: steps.scope.outputs.run == 'true'
         working-directory: web
         run: npm run build
 
       - name: Layout audit at 390, 768 and 1440 px
+        if: steps.scope.outputs.run == 'true'
         working-directory: web
         run: npm run test:layout
 
