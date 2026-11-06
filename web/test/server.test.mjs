@@ -1,7 +1,7 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { webhookKind, webhookPayload } from "../server/notify.mjs";
 import fs from "node:fs";
 import net from "node:net";
@@ -2273,9 +2273,10 @@ test("the Subsonic API browses and streams the library read-only", async () => {
     assert.equal(wrong.status, "failed");
     assert.equal(wrong.error.code, 40);
 
-    // Token auth needs the password itself, which a scrypt hash does not hold.
+    // A token that matches nothing is a wrong password, not a refusal of the
+    // scheme: the Subsonic password exists so md5(password + salt) can be checked.
     const token = await asJson("ping", { p: "", t: "abc", s: "def" });
-    assert.equal(token.error.code, 41);
+    assert.equal(token.error.code, 40);
 
     const artists = await asJson("getArtists");
     const listed = artists.artists.index.flatMap((bucket) => bucket.artist);
@@ -2328,5 +2329,135 @@ test("the Subsonic API browses and streams the library read-only", async () => {
     assert.equal((await guestAnswer.json())["subsonic-response"].error.code, 40);
   } finally {
     fs.rmSync(path.join(music, "Sub Artist"), { recursive: true, force: true });
+  }
+});
+
+// The switch and the two credentials are the owner's alone, and rotating either
+// one locks out whatever was still using the old value.
+test("the Subsonic API can be switched off and uses its own credentials", async () => {
+  const login = await call("/api/login", {
+    method: "POST",
+    body: { username: "owner", password: "testpassword" },
+  });
+  const cookie = cookieOf(login);
+  const settings = await json(await call("/api/settings", { cookie }));
+  const { key, secret } = settings.subsonic;
+  assert.equal(settings.subsonic.enabled, true);
+  assert.match(key, /^[A-Za-z0-9_-]{16,64}$/);
+  assert.match(secret, /^[A-Za-z0-9_-]{16,64}$/);
+  assert.notEqual(key, secret, "the key and the password are separate secrets");
+
+  // A guest never receives any of it.
+  const guestCookie = cookieOf(await call("/api/guest", { method: "POST" }));
+  const guestView = await json(await call("/api/settings", { cookie: guestCookie }));
+  assert.equal(guestView.subsonic, undefined);
+
+  const ping = async (params) => {
+    const answer = await fetch(
+      `${BASE}/rest/ping?${new URLSearchParams({ v: "1.16.1", c: "test", f: "json", ...params })}`,
+    );
+    return (await answer.json())["subsonic-response"];
+  };
+
+  assert.equal((await ping({ apiKey: key })).status, "ok");
+  assert.equal((await ping({ apiKey: "not-the-key" })).error.code, 44);
+
+  // The dedicated password works with the owner username, in both forms.
+  assert.equal((await ping({ u: "owner", p: secret })).status, "ok");
+  const salt = "c0ffee";
+  const token = createHash("md5").update(`${secret}${salt}`).digest("hex");
+  assert.equal((await ping({ u: "owner", t: token, s: salt })).status, "ok");
+  assert.equal((await ping({ u: "owner", t: "0".repeat(32), s: salt })).error.code, 40);
+
+  // Off is off for every client, key or password.
+  await call("/api/settings", { method: "PUT", cookie, body: { subsonicEnabled: false } });
+  assert.equal((await ping({ apiKey: key })).error.code, 50);
+  assert.equal((await ping({ u: "owner", p: secret })).error.code, 50);
+
+  try {
+    const rotated = await json(
+      await call("/api/settings", {
+        method: "PUT",
+        cookie,
+        body: { subsonicEnabled: true, subsonicKeyReset: true, subsonicSecretReset: true },
+      }),
+    );
+    assert.notEqual(rotated.subsonic.key, key);
+    assert.notEqual(rotated.subsonic.secret, secret);
+    // The old pair is dead the moment the new one is saved.
+    assert.equal((await ping({ apiKey: key })).error.code, 44);
+    assert.equal((await ping({ u: "owner", p: secret })).error.code, 40);
+    assert.equal((await ping({ apiKey: rotated.subsonic.key })).status, "ok");
+  } finally {
+    await call("/api/settings", { method: "PUT", cookie, body: { subsonicEnabled: true } });
+  }
+});
+
+// A player draws a track length, and the folder walk cannot know one. The probe
+// is measured once, cached against the file's mtime, and reused afterwards.
+test("the Subsonic API reports track durations from a cached probe", async (t) => {
+  if (!ffmpeg) {
+    t.skip("ffmpeg is not installed");
+    return;
+  }
+  const login = await call("/api/login", {
+    method: "POST",
+    body: { username: "owner", password: "testpassword" },
+  });
+  const cookie = cookieOf(login);
+  const music = path.join(DATA, "music");
+  const dir = path.join(music, "Timed Artist", "Timed Album");
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, "01 - Timed Song.m4a");
+  execFileSync("ffmpeg", [
+    "-v",
+    "error",
+    "-f",
+    "lavfi",
+    "-i",
+    "sine=frequency=440:duration=2",
+    "-c:a",
+    "aac",
+    file,
+  ]);
+
+  const asJson = async (name, params = {}) => {
+    const query = new URLSearchParams({
+      u: "owner",
+      p: "testpassword",
+      v: "1.16.1",
+      c: "test",
+      f: "json",
+      ...params,
+    });
+    return (await (await fetch(`${BASE}/rest/${name}?${query}`)).json())["subsonic-response"];
+  };
+
+  try {
+    const search = await asJson("search3", { query: "Timed Song" });
+    const song = search.searchResult3.song.find((entry) => entry.title === "Timed Song");
+    assert.ok(song, "the new file is in the walk");
+    assert.ok(song.duration >= 2 && song.duration <= 3, `duration is measured (got ${song.duration})`);
+
+    // The album listing and the XML view carry the same length.
+    const album = await asJson("getAlbum", { id: song.albumId });
+    assert.equal(album.album.song[0].duration, song.duration);
+    const xmlQuery = new URLSearchParams({ u: "owner", p: "testpassword", v: "1.16.1", c: "test", id: song.id });
+    const xml = await (await fetch(`${BASE}/rest/getSong?${xmlQuery}`)).text();
+    assert.match(xml, new RegExp(`duration="${song.duration}"`));
+
+    // Second request: the answer comes from data/durations.json, not a new probe.
+    const cached = await asJson("getSong", { id: song.id });
+    assert.equal(cached.song.duration, song.duration);
+
+    // The cache is written to the data folder, so a restart does not re-measure.
+    const cachedFile = path.join(DATA, "durations.json");
+    for (let guard = 0; guard < 40 && !fs.existsSync(cachedFile); guard += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.equal(fs.existsSync(cachedFile), true, "the durations are persisted");
+    assert.equal(JSON.parse(fs.readFileSync(cachedFile, "utf8"))[file]?.duration, song.duration);
+  } finally {
+    fs.rmSync(path.join(music, "Timed Artist"), { recursive: true, force: true });
   }
 });
