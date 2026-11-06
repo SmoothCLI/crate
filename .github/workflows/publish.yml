@@ -213,7 +213,9 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            # `latest` follows the newest release, not the newest commit: a
+            # main push already publishes `main` and an immutable sha tag.
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
             # A manual run can stamp a version onto an existing build, which is
             # how an image gets re-published after something like a rename.
             type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
