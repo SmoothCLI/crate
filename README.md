@@ -30,13 +30,13 @@ Just provide a URL and let audioDL handle the rest.
 
 ## Preview
 
-A demonstration GIF of the audioDL workflow will be added soon.
-
-<!--
 <p align="center">
-  <img src="assets/demo.gif" width="700">
+  <img src="assets/demo.gif" width="880" alt="Pasting a SoundCloud link, reviewing the tags and queueing the download">
 </p>
--->
+
+<p align="center">
+  <em>SoundCloud → review → tagged file, recorded from the web UI at 2× speed.</em>
+</p>
 
 ---
 
