@@ -14,6 +14,10 @@ All notable changes to Crate are documented here. The format follows
 - Subsonic responses now carry real **track durations**, measured with `ffprobe`
   and cached in `data/durations.json` by path and mtime, so a player draws a
   length instead of `0` and files are not probed twice.
+- The review card's **Genre** field works like the artist field: typing offers
+  the shipped genre vocabulary with fuzzy matching (so "hardtekk" finds
+  "Hardtekk"), Enter turns a value into a chip, and the × removes it. Several
+  genres are written as one semicolon-separated tag value.
 
 ### Changed
 

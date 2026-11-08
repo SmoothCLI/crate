@@ -185,23 +185,16 @@ export function ReviewCard({
               placeholder="Album"
             />
           </Field>
-          <Field label="Genre">
-            <input
-              className="field"
-              value={draft.genre}
-              onChange={(e) => onChange({ genre: e.target.value })}
-              placeholder="Genre"
-              list={genres.length ? "genre-options" : undefined}
-              spellCheck={false}
-            />
-            {genres.length > 0 && (
-              <datalist id="genre-options">
-                {genres.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-            )}
-          </Field>
+          <div>
+            <span className="chip">Genre</span>
+            <div className="mt-1.5">
+              <GenreField
+                value={draft.genre}
+                options={genres}
+                onChange={(genre) => onChange({ genre })}
+              />
+            </div>
+          </div>
           <Field label="Date">
             <input
               className="field num"
@@ -475,6 +468,11 @@ function Segment({
 // tag writer splits never disagree.
 const ARTIST_SPLIT = /[,;，；、]/;
 
+// Genre is a single tag on the other end, so the chips are written as one
+// semicolon-separated value - the convention tag readers split on - and a comma
+// stays part of a name like "Folk, World, & Country".
+const GENRE_SPLIT = /[;；]/;
+
 // Two spellings of one artist fold together when only case, accents,
 // punctuation, full-width forms or spacing differ, so "ARTIST1", "artist-1"
 // and "Artist1" all reduce to the same name.
@@ -496,13 +494,21 @@ function foldKey(value: string): string {
   return foldArtist(value).replace(/ /g, "");
 }
 
-function splitArtists(value: string): string[] {
+function splitList(value: string, separator: RegExp): string[] {
   const names: string[] = [];
-  for (const part of String(value || "").split(ARTIST_SPLIT)) {
+  for (const part of String(value || "").split(separator)) {
     const name = part.trim();
     if (name && !names.some((seen) => foldKey(seen) === foldKey(name))) names.push(name);
   }
   return names;
+}
+
+function splitArtists(value: string): string[] {
+  return splitList(value, ARTIST_SPLIT);
+}
+
+function splitGenres(value: string): string[] {
+  return splitList(value, GENRE_SPLIT);
 }
 
 // Levenshtein, only ever called with short names. Every option is scored on
@@ -565,25 +571,44 @@ function canonicalArtist(options: string[], typed: string): string {
   return options.find((name) => foldKey(name) === key) ?? typed.trim();
 }
 
-// Artist names come from the library, so a track lands in the existing folder
-// instead of creating a near-duplicate one ("The Beatles" vs "Beatles").
-// The field holds a list: a name becomes a chip on Enter (or by picking a
-// suggestion), the × beside it removes it, and the value stays the plain
-// comma-separated string the script splits into separate artist tags.
-function ArtistField({
-  value,
-  options,
-  onChange,
-}: {
+// One component for both list fields: names come from what already exists
+// (the library's artists, the shipped genre vocabulary), so a value is reused
+// instead of creating a near-duplicate ("The Beatles" vs "Beatles",
+// "hardtekk" vs "Hardtekk"). A name becomes a chip on Enter or by picking a
+// suggestion, the × beside it removes it, and the value stays the plain string
+// the rest of the app already sends.
+type TokenFieldProps = {
   value: string;
   options: string[];
   onChange: (value: string) => void;
-}) {
+  split: (value: string) => string[];
+  // What several chips become in the one value the tag writer receives.
+  join: string;
+  // Ids must differ: both fields live on the same page.
+  listId: string;
+  label: string;
+  placeholder: string;
+  emptyPlaceholder: string;
+  createText: (name: string) => string;
+};
+
+function TokenField({
+  value,
+  options,
+  onChange,
+  split,
+  join,
+  listId,
+  label,
+  placeholder,
+  emptyPlaceholder,
+  createText,
+}: TokenFieldProps) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [typing, setTyping] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const names = splitArtists(value);
+  const names = split(value);
   const key = foldKey(typing);
   // A name that already exists in the library keeps its stored spelling; only
   // a name the library has never seen is offered as a new one.
@@ -600,18 +625,18 @@ function ArtistField({
   // in the field is never added twice - "artist1" and "Artist1" count as one.
   function add(raw: string) {
     const next = [...names];
-    for (const part of splitArtists(raw)) {
+    for (const part of split(raw)) {
       const name = canonicalArtist(options, part);
       if (!next.some((taken) => foldKey(taken) === foldKey(name))) next.push(name);
     }
     setTyping("");
     setOpen(false);
     setActive(-1);
-    if (next.length !== names.length) onChange(next.join(", "));
+    if (next.length !== names.length) onChange(next.join(join));
   }
 
   function remove(name: string) {
-    onChange(names.filter((taken) => taken !== name).join(", "));
+    onChange(names.filter((taken) => taken !== name).join(join));
   }
 
   return (
@@ -683,20 +708,20 @@ function ArtistField({
               setActive(-1);
             }
           }}
-          placeholder={names.length ? "Add another…" : "Artist, then Enter"}
+          placeholder={names.length ? placeholder : emptyPlaceholder}
           role="combobox"
           aria-expanded={showing}
-          aria-controls="artist-suggestions"
+          aria-controls={listId}
           aria-autocomplete="list"
-          aria-label="Artists"
-          aria-activedescendant={active >= 0 ? `artist-option-${active}` : undefined}
+          aria-label={label}
+          aria-activedescendant={active >= 0 ? `${listId}-option-${active}` : undefined}
           autoComplete="off"
           spellCheck={false}
         />
       </div>
       {showing && (
         <ul
-          id="artist-suggestions"
+          id={listId}
           role="listbox"
           className="absolute z-20 mt-1 w-full overflow-hidden rounded-[9px] py-1"
           style={{
@@ -708,7 +733,7 @@ function ArtistField({
           {rows.map((row, index) => (
             <li
               key={row.create ? `create:${row.name}` : row.name}
-              id={`artist-option-${index}`}
+              id={`${listId}-option-${index}`}
               role="option"
               aria-selected={index === active}
               className="cursor-pointer truncate px-3 py-1.5 text-[12.5px]"
@@ -721,7 +746,7 @@ function ArtistField({
               }}
             >
               {row.create ? (
-                <span style={{ color: "var(--ink-2)" }}>Use “{row.name}” as a new artist</span>
+                <span style={{ color: "var(--ink-2)" }}>{createText(row.name)}</span>
               ) : (
                 row.name
               )}
@@ -730,6 +755,44 @@ function ArtistField({
         </ul>
       )}
     </div>
+  );
+}
+
+function ArtistField(props: {
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <TokenField
+      {...props}
+      split={splitArtists}
+      join=", "
+      listId="artist-suggestions"
+      label="Artists"
+      placeholder="Add another…"
+      emptyPlaceholder="Artist, then Enter"
+      createText={(name) => `Use “${name}” as a new artist`}
+    />
+  );
+}
+
+function GenreField(props: {
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <TokenField
+      {...props}
+      split={splitGenres}
+      join="; "
+      listId="genre-suggestions"
+      label="Genres"
+      placeholder="Add another…"
+      emptyPlaceholder="Genre, then Enter"
+      createText={(name) => `Add “${name}” as a new genre`}
+    />
   );
 }
 
