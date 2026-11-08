@@ -1,0 +1,90 @@
+name: check
+
+# Every push is checked, and a release is held to the same file: publish.yml
+# calls this workflow as its `test` job, so a broken downloader or a broken UI
+# stops the image before it is built.
+#
+# Nothing here downloads music. The script tests run the real dlAudio.sh with a
+# stand-in yt-dlp that copies a generated tone into a throwaway library, and the
+# web suite boots the real server against a stub downloader. Both halves of the
+# pipeline - argument handling, tag writing, duplicate guard, queue flow, the
+# API contract - are exercised offline.
+#
+# Main is not listed: a push there is covered by publish.yml, which calls this
+# workflow, so one commit does not run the suite twice.
+
+on:
+  push:
+    branches-ignore: [main]
+    tags-ignore: ["**"]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  downloader:
+    name: downloader
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The script tests encode a generated tone and measure it, so they need
+      # ffmpeg/ffprobe. The runner usually ships neither, and apt has stalled on
+      # these mirrors before, so take a static build instead.
+      - name: Install ffmpeg
+        run: |
+          if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
+            ffmpeg -version | head -1
+            exit 0
+          fi
+          url="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
+          curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 20 --max-time 600 "$url" -o /tmp/ffmpeg.tar.xz
+          tar -xJf /tmp/ffmpeg.tar.xz -C /tmp
+          dir="$(find /tmp -maxdepth 1 -type d -name 'ffmpeg-master-latest-linux64-gpl' | head -1)"
+          sudo install -m 0755 "$dir/bin/ffmpeg" "$dir/bin/ffprobe" /usr/local/bin/
+          ffmpeg -version | head -1
+
+      # A syntax error or a broken argument parser fails here in seconds, before
+      # the slower tests get a chance to report it as something else.
+      - name: Script parses and starts
+        run: |
+          bash -n dlAudio.sh
+          ./dlAudio.sh --version
+          ./dlAudio.sh --help >/dev/null
+
+      - name: Downloader tests (offline)
+        run: node --test test/*.test.mjs
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # The server suite is browser-free; the Playwright layout audit is a
+      # separate job in publish.yml, so skip the browser download here.
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci --no-audit --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - name: Typecheck
+        working-directory: web
+        run: npm run typecheck
+
+      - name: Web tests
+        working-directory: web
+        run: npm test
+
+      - name: Build UI
+        working-directory: web
+        run: npm run build

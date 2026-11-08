@@ -104,6 +104,26 @@ test("a push to main tests but never publishes", () => {
   assert.match(latest, /github\.ref_type == 'tag'/, "`latest` would move without a release");
 });
 
+// The checks a release must pass live in one callable file, so a tag can never
+// ship something a branch push would have rejected.
+test("a release runs the same checks as a branch push", () => {
+  const workflow = read(".github/workflows/publish.yml");
+  assert.match(
+    workflow,
+    /\n  test:\n\s+name: tests\n\s+uses: \.\/\.github\/workflows\/check\.yml/,
+    "publish.yml no longer calls the shared check workflow",
+  );
+
+  const publishJob = workflow.slice(workflow.indexOf("\n  publish:\n"));
+  const needs = publishJob.match(/^ {4}needs: (.+)$/m)?.[1] ?? "";
+  assert.match(needs, /test/, "the image job no longer depends on the checks");
+
+  const check = read(".github/workflows/check.yml");
+  assert.match(check, /^\s+workflow_call:/m, "check.yml cannot be called by publish.yml");
+  assert.match(check, /^\s+push:/m, "check.yml no longer runs on a push");
+  assert.match(check, /node --test test\/\*\.test\.mjs/, "the downloader tests are gone");
+});
+
 test("compose and the README agree on the repository and image", () => {
   const readme = read("README.md");
   assert.match(
