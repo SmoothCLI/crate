@@ -27,6 +27,12 @@ All notable changes to Crate are documented here. The format follows
 
 ### Changed
 
+- The uploader's **artist name is removed from the title and album** when the
+  source repeats it there, so `DAFT PUNK - One More Time` is searched, filed and
+  tagged as `One More Time` under `Daft Punk`. The credit is compared without
+  case, so an all-caps SoundCloud uploader still matches the spelling used by
+  MusicBrainz; only a whole leading or trailing credit is removed, and a partial
+  one is left alone.
 - Subsonic **token auth** (`t` + `s`) works, against the dedicated Subsonic
   password. The web password remains a scrypt hash and is still accepted by
   `u` + `p` only.

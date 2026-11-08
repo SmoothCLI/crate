@@ -772,3 +772,87 @@ test("an unmatched track is tagged with its source metadata and no MBIDs", (t) =
   assert.match(probe.stdout, /TAG:title=Midnight Drive \(Official Video\)/);
   assert.match(res.stdout, /Unmatched    1/);
 });
+
+test("the artist credit is stripped from titles and albums without case", (t) => {
+  const h = harness(t);
+  const body = `
+source ${JSON.stringify(SCRIPT)}
+strip_artist_name "DAFT PUNK - One More Time" "Daft Punk"
+printf '\\n'
+strip_artist_name "DAFT PUNK - Discovery" "Daft Punk"
+printf '\\n'
+strip_artist_name "One More Time - Daft Punk" "Daft Punk"
+printf '\\n'
+strip_artist_name "daft punk: One More Time" "Daft Punk"
+printf '\\n'
+strip_artist_name "Daft Punker - One More Time" "Daft Punk"
+printf '\\n'
+strip_artist_name "Daft Punk" "Daft Punk"
+`;
+  const res = spawnSync("bash", ["-c", body], { env: env(h), encoding: "utf8" });
+  assert.equal(res.status, 0, res.stderr);
+  assert.deepEqual(res.stdout.trimEnd().split("\n"), [
+    "One More Time",
+    "Discovery",
+    "One More Time",
+    "One More Time",
+    "Daft Punker - One More Time",
+    "Daft Punk",
+  ]);
+});
+
+test("an all-caps artist still matches MusicBrainz once the credit is removed", (t) => {
+  const h = harness(t);
+  const meta = [
+    "DAFT PUNK",
+    "DAFT PUNK - Discovery",
+    "DAFT PUNK - One More Time",
+    "DAFT PUNK",
+    "20240302",
+    "",
+    "",
+    "e1",
+    "214",
+  ].join("\x1f");
+  writeFileSync(
+    path.join(h.bin, "yt-dlp"),
+    `#!/usr/bin/env bash\nprintf '%s\\n' '${meta}'\n`,
+    { mode: 0o755 },
+  );
+  const body = `
+source ${JSON.stringify(SCRIPT)}
+TMP_DIR=${JSON.stringify(h.tmp)}
+HAVE_JQ=1
+MB_ENABLED=1
+JSON=0
+URL="https://example.invalid/watch?v=e1"
+fetch_metadata >/dev/null 2>&1 || exit 1
+musicbrainz_lookup
+printf 'RESULT\\t%s\\t%s\\t%s\\t%s\\n' "$MB_STATUS" "$TITLE" "$ARTIST" "$ALBUM"
+`;
+  const res = spawnSync("bash", ["-c", body], {
+    env: env(
+      h,
+      serve(
+        h,
+        search([
+          recording({
+            title: "One More Time",
+            artistCredit: "Daft Punk",
+            releases: [release({ title: "Discovery" })],
+          }),
+        ]),
+      ),
+    ),
+    encoding: "utf8",
+  });
+  assert.equal(res.status, 0, res.stderr);
+  const line = res.stdout.split("\n").find((l) => l.startsWith("RESULT\t"));
+  assert.ok(line, `no RESULT line in:\n${res.stdout}\n${res.stderr}`);
+  assert.deepEqual(line.slice("RESULT\t".length).split("\t"), [
+    "matched",
+    "One More Time",
+    "Daft Punk",
+    "Discovery",
+  ]);
+});

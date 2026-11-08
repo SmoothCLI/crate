@@ -1276,12 +1276,17 @@ fetch_metadata() {
   ARTIST="$(fallback "${r_artist:-}" "${r_uploader:-}")"
   ARTIST="$(fallback "$ARTIST" "Unknown Artist")"
   TITLE="$(fallback "${r_title:-}" "Unknown Title")"
+  # A SoundCloud upload often repeats the act in the title. Drop that credit
+  # before the tags or the search see it; the comparison ignores case, so an
+  # all-caps uploader still loses it (see strip_artist_name).
+  TITLE="$(strip_artist_name "$TITLE" "$ARTIST")"
   # No album in the source (a single upload, which is most SoundCloud tracks):
   # the track's own name is the least surprising album, instead of dropping
   # every unrelated single into one shared "Single" folder. ALBUM_FALLBACK lets
   # the playlist logic tell this placeholder from a real album name.
   ALBUM="$(fallback "${r_album:-}" "")"
   if [ -n "$ALBUM" ]; then
+    ALBUM="$(strip_artist_name "$ALBUM" "$ARTIST")"
     ALBUM_FALLBACK=0
   else
     ALBUM="$TITLE"
@@ -1407,6 +1412,54 @@ mb_clean_artist() {
   *VEVO) a="${a%VEVO}" ;;
   esac
   printf '%s' "$a" | sed -e 's/[[:space:]]*$//'
+}
+
+# SoundCloud uploads often carry the act's own name in both fields:
+# "DAFT PUNK - One More Time" on an album called "DAFT PUNK - Discovery". The
+# credit is compared folded - case, punctuation and spacing do not matter - so
+# an all-caps uploader still matches the spelling the database uses, and only a
+# whole leading or trailing credit is removed. Anything less certain is left
+# alone rather than guessed at.
+strip_artist_name() {
+  local text="${1:-}" artist="${2:-}" cand rest name sep
+  [ -n "$text" ] && [ -n "$artist" ] || {
+    printf '%s' "$text"
+    return 0
+  }
+  local -a names=("$artist" "$(primary_artist "$artist")" "$(mb_clean_artist "$artist")")
+  for sep in " - " " – " " — " " | " " • " ": "; do
+    case "$text" in
+    *"$sep"*)
+      cand="${text%%"$sep"*}"
+      rest="${text#*"$sep"}"
+      if [ -n "${rest//[[:space:]]/}" ]; then
+        for name in "${names[@]}"; do
+          if [ -n "$name" ] && mb_same "$cand" "$name"; then
+            printf '%s' "$rest" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+            return 0
+          fi
+        done
+      fi
+      ;;
+    esac
+  done
+  for sep in " - " " – " " — " " | " " • " ": "; do
+    case "$text" in
+    *"$sep"*)
+      cand="${text%"$sep"*}"
+      rest="${text##*"$sep"}"
+      if [ -n "${cand//[[:space:]]/}" ]; then
+        for name in "${names[@]}"; do
+          if [ -n "$name" ] && mb_same "$rest" "$name"; then
+            printf '%s' "$cand" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+            return 0
+          fi
+        done
+      fi
+      ;;
+    esac
+  done
+  printf '%s' "$text"
 }
 
 # MusicBrainz dates are often just a year or a year and month. The tag DATE
@@ -4095,6 +4148,9 @@ run_preview() {
     TRACK="$idx"
     [ "$kind" = track ] && TRACK=1
     RAW_THUMB=""
+    # Previews do not re-fetch every playlist entry, so clean the flat title
+    # the same way fetch_metadata does for a real run.
+    TITLE="$(strip_artist_name "$TITLE" "$ARTIST")"
     autofill_or_prompt_metadata
     compute_paths || {
       rm -rf "$tmp"

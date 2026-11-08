@@ -28,6 +28,14 @@ One search request is made per track, using the cleaned title (upload noise like
 artist is an uploader name that matches nothing, one retry searches the title
 alone. The request asks for releases, artist credits, media and tags.
 
+SoundCloud uploads often repeat the act in the title and the album
+(`DAFT PUNK - One More Time` on `DAFT PUNK - Discovery`). Before the search and
+before tagging, a whole leading or trailing credit is removed from both fields.
+The comparison ignores case, punctuation and spacing, so an all-caps uploader
+still matches the spelling MusicBrainz uses and the saved tags end up as
+`Daft Punk` / `One More Time` / `Discovery`. Only a credit that is unambiguously
+the artist is removed; a partial or unclear one is left as the source wrote it.
+
 Candidates are ranked with a score that combines:
 
 - MusicBrainz's own relevance score,
@@ -167,6 +175,10 @@ event; the web queue ignores both:
   fast. A real run can therefore file a track under the album the lookup found.
 - SoundCloud exclusives, unreleased tracks and bootlegs usually have no entry;
   they fall back to the source metadata, which is the intended behaviour.
+- The artist credit is only removed when it is the whole text before the first
+  `-`, `–`, `—`, `|`, `•` or `:` (or after the last one, for a trailing credit).
+  `Daft Punk feat. Pharrell - Get Lucky` is therefore kept as it is rather than
+  guessed at.
 - Files streamed with `--stream-fd` are not given MBIDs (the hand-written ID3
   tag in that path is unchanged), and WAV has no place for them.
 - MusicBrainz data is community-maintained. A wrong match is possible when the
