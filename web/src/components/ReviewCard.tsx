@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as Checkbox from "@radix-ui/react-checkbox";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import type { Draft, Preview, Row } from "../types";
+import type { Draft, Preview, PreviewDefaults, Row } from "../types";
 import { formatDuration } from "../lib/format";
 import { AlertIcon, CheckIcon, CloseIcon, PencilIcon } from "./Icons";
 import { CoverPicker } from "./CoverPicker";
+import { ArtistField, GenreField } from "./TokenField";
 
 // A long playlist is paged rather than printed as one endless column. Paging
 // only changes what is drawn: selection, *all* and *none* cover every row.
@@ -25,6 +26,8 @@ type Props = {
   artists: string[];
   // Genre vocabulary for the field's suggestions; free text is still allowed.
   genres: string[];
+  // The source's own values, so an edited field can be put back.
+  defaults: PreviewDefaults | null;
   queuing: boolean;
   activeJobs: boolean;
   onQueue: () => void;
@@ -46,6 +49,7 @@ export function ReviewCard({
   allowOpus,
   artists,
   genres,
+  defaults,
   queuing,
   activeJobs,
   onQueue,
@@ -73,7 +77,6 @@ export function ReviewCard({
   const duplicates = showTargets ? (plan?.duplicates ?? []) : [];
   const totalDuration = selected.reduce((sum, row) => sum + row.duration, 0);
   const firstPath = showTargets ? (plan?.tracks[0]?.path ?? "") : "";
-  const targetDir = firstPath ? firstPath.slice(0, firstPath.lastIndexOf("/") + 1) : "";
   const single = draft.kind === "track";
   // What "Use source cover" goes back to, as the plan last reported it.
   const sourceCover = plan?.defaults.thumbnail ?? draft.thumbnail;
@@ -84,6 +87,28 @@ export function ReviewCard({
     onChange(url ? { thumbnail: url, art: true } : { thumbnail: sourceCover });
     draft.rows.forEach((row) => onRowChange(row.i, { art: url }));
   }
+
+  // Resetting the date follows the same rule as editing it: rows that still
+  // carry the old date move with the card.
+  function resetDate() {
+    if (!defaults) return;
+    onChange({ date: defaults.date });
+    draft.rows.forEach((row) => {
+      if (row.date === draft.date) onRowChange(row.i, { date: defaults.date });
+    });
+  }
+
+  // Ctrl/Cmd+Enter is the card's one action: queue what is selected.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !(event.metaKey || event.ctrlKey) || event.key !== "Enter") return;
+      if (queuing || selected.length === 0) return;
+      event.preventDefault();
+      onQueue();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onQueue, queuing, selected.length]);
 
   return (
     <section className="card unfold relative isolate overflow-hidden" aria-label="Review download">
@@ -168,7 +193,12 @@ export function ReviewCard({
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
-            <span className="chip">Artist</span>
+            <div className="flex items-center gap-1">
+              <span className="chip">Artist</span>
+              {defaults && draft.artist !== defaults.artist && (
+                <ResetButton label="Artist" onClick={() => onChange({ artist: defaults.artist })} />
+              )}
+            </div>
             <div className="mt-1.5">
               <ArtistField
                 value={draft.artist}
@@ -177,16 +207,25 @@ export function ReviewCard({
               />
             </div>
           </div>
-          <Field label="Album">
+          <Field
+            label="Album"
+            onReset={defaults && draft.album !== defaults.album ? () => onChange({ album: defaults.album }) : undefined}
+          >
             <input
               className="field"
+              aria-label="Album"
               value={draft.album}
               onChange={(e) => onChange({ album: e.target.value })}
               placeholder="Album"
             />
           </Field>
           <div>
-            <span className="chip">Genre</span>
+            <div className="flex items-center gap-1">
+              <span className="chip">Genre</span>
+              {defaults && draft.genre !== defaults.genre && (
+                <ResetButton label="Genre" onClick={() => onChange({ genre: defaults.genre })} />
+              )}
+            </div>
             <div className="mt-1.5">
               <GenreField
                 value={draft.genre}
@@ -195,10 +234,14 @@ export function ReviewCard({
               />
             </div>
           </div>
-          <Field label="Date">
+          <Field
+            label="Date"
+            onReset={defaults && draft.date !== defaults.date ? resetDate : undefined}
+          >
             <input
               className="field num"
               type="date"
+              aria-label="Date"
               value={draft.date}
               onChange={(e) => {
                 onChange({ date: e.target.value });
@@ -211,6 +254,7 @@ export function ReviewCard({
           <Field label="Target LUFS">
             <input
               className="field num"
+              aria-label="Target LUFS"
               value={draft.lufs}
               onChange={(e) => onChange({ lufs: Number(e.target.value) || 0 })}
               inputMode="numeric"
@@ -219,6 +263,7 @@ export function ReviewCard({
           <Field label="Format">
             <select
               className="field"
+              aria-label="Format"
               value={draft.format}
               onChange={(e) => onChange({ format: e.target.value })}
             >
@@ -232,6 +277,7 @@ export function ReviewCard({
           <Field label="Quality">
             <select
               className="field"
+              aria-label="Quality"
               value={draft.quality}
               onChange={(e) => onChange({ quality: Number(e.target.value) })}
             >
@@ -357,11 +403,11 @@ export function ReviewCard({
               <span style={{ color: "var(--danger)" }}>{planError}</span>
             ) : planBusy && !plan ? (
               <span className="skeleton inline-block h-[12px] w-[240px]" />
-            ) : targetDir ? (
+            ) : firstPath ? (
               <>
                 <span style={{ color: "var(--ink-3)" }}>Saves to</span>
                 <span className="mono truncate max-w-full" title={firstPath}>
-                  {targetDir}
+                  {firstPath}
                 </span>
               </>
             ) : null}
@@ -407,12 +453,40 @@ export function ReviewCard({
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({
+  label,
+  children,
+  onReset,
+}: {
+  label: string;
+  children: ReactNode;
+  // Present only while the value differs from the source's own.
+  onReset?: () => void;
+}) {
   return (
-    <label className="block">
-      <span className="chip">{label}</span>
+    <div className="block">
+      <div className="flex items-center gap-1">
+        <span className="chip">{label}</span>
+        {onReset && <ResetButton label={label} onClick={onReset} />}
+      </div>
       <div className="mt-1.5">{children}</div>
-    </label>
+    </div>
+  );
+}
+
+// Puts one edited field back to what the link itself offered.
+function ResetButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="rounded-[6px] px-1 text-[11px] leading-none"
+      style={{ color: "var(--ink-3)" }}
+      title={`Reset ${label} to the source value`}
+      aria-label={`Reset ${label} to the source value`}
+      onClick={onClick}
+    >
+      ↺
+    </button>
   );
 }
 
@@ -461,338 +535,6 @@ function Segment({
     >
       {children}
     </button>
-  );
-}
-
-// The same separators the script uses, so what the chips show and what the
-// tag writer splits never disagree.
-const ARTIST_SPLIT = /[,;，；、]/;
-
-// Genre is a single tag on the other end, so the chips are written as one
-// semicolon-separated value - the convention tag readers split on - and a comma
-// stays part of a name like "Folk, World, & Country".
-const GENRE_SPLIT = /[;；]/;
-
-// Two spellings of one artist fold together when only case, accents,
-// punctuation, full-width forms or spacing differ, so "ARTIST1", "artist-1"
-// and "Artist1" all reduce to the same name.
-function foldArtist(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    // Letters and digits of any script: a Cyrillic or Japanese folder name must
-    // stay searchable instead of folding away to nothing.
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-}
-
-// Identity is the folded name with its word breaks removed as well, so
-// "Artist1", "artist-1" and "Artist 1" are the same entry rather than three.
-function foldKey(value: string): string {
-  return foldArtist(value).replace(/ /g, "");
-}
-
-function splitList(value: string, separator: RegExp): string[] {
-  const names: string[] = [];
-  for (const part of String(value || "").split(separator)) {
-    const name = part.trim();
-    if (name && !names.some((seen) => foldKey(seen) === foldKey(name))) names.push(name);
-  }
-  return names;
-}
-
-function splitArtists(value: string): string[] {
-  return splitList(value, ARTIST_SPLIT);
-}
-
-function splitGenres(value: string): string[] {
-  return splitList(value, GENRE_SPLIT);
-}
-
-// Levenshtein, only ever called with short names. Every option is scored on
-// each keystroke, which stays cheap for the few hundred the API returns.
-function editDistance(a: string, b: string): number {
-  if (a === b) return 0;
-  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
-  for (let i = 1; i <= a.length; i += 1) {
-    const current = [i];
-    for (let j = 1; j <= b.length; j += 1) {
-      current[j] = Math.min(
-        previous[j] + 1,
-        current[j - 1] + 1,
-        previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
-      );
-    }
-    previous = current;
-  }
-  return previous[b.length];
-}
-
-// Higher is a closer match; -1 means no match. An exact spelling wins, then a
-// prefix of the whole name, then a prefix of any word, then a substring, and
-// finally a name one or two edits away ("beatls" -> "Beatles").
-function scoreArtist(candidate: string, needle: string): number {
-  const name = foldArtist(candidate);
-  if (!needle) return 0;
-  if (name === needle) return 100;
-  if (name.replace(/ /g, "") === needle.replace(/ /g, "")) return 95;
-  if (name.startsWith(needle)) return 80;
-  if (name.split(" ").some((word) => word.startsWith(needle))) return 70;
-  if (name.includes(needle)) return 60;
-  const allowance = needle.length <= 4 ? 1 : needle.length <= 8 ? 2 : 3;
-  const closest = Math.min(
-    editDistance(name, needle),
-    ...name.split(" ").map((word) => editDistance(word, needle)),
-  );
-  return closest <= allowance ? 50 - closest : -1;
-}
-
-// The library's own spellings, best match first, never one already in the
-// field. Everything is folded before it is compared.
-function rankArtists(options: string[], typed: string, taken: string[]): string[] {
-  const needle = foldArtist(typed);
-  const already = new Set(taken.map(foldKey));
-  return options
-    .filter((name) => !already.has(foldKey(name)))
-    .map((name) => ({ name, score: scoreArtist(name, needle) }))
-    .filter((entry) => entry.score >= 0)
-    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-    .slice(0, 8)
-    .map((entry) => entry.name);
-}
-
-// What Enter commits when no suggestion is highlighted: the library's spelling
-// of an exact match, otherwise what was typed. So "artist1" becomes "Artist1",
-// while a genuinely new name is still accepted as it stands.
-function canonicalArtist(options: string[], typed: string): string {
-  const key = foldKey(typed);
-  return options.find((name) => foldKey(name) === key) ?? typed.trim();
-}
-
-// One component for both list fields: names come from what already exists
-// (the library's artists, the shipped genre vocabulary), so a value is reused
-// instead of creating a near-duplicate ("The Beatles" vs "Beatles",
-// "hardtekk" vs "Hardtekk"). A name becomes a chip on Enter or by picking a
-// suggestion, the × beside it removes it, and the value stays the plain string
-// the rest of the app already sends.
-type TokenFieldProps = {
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-  split: (value: string) => string[];
-  // What several chips become in the one value the tag writer receives.
-  join: string;
-  // Ids must differ: both fields live on the same page.
-  listId: string;
-  label: string;
-  placeholder: string;
-  emptyPlaceholder: string;
-  createText: (name: string) => string;
-};
-
-function TokenField({
-  value,
-  options,
-  onChange,
-  split,
-  join,
-  listId,
-  label,
-  placeholder,
-  emptyPlaceholder,
-  createText,
-}: TokenFieldProps) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
-  const [typing, setTyping] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const names = split(value);
-  const key = foldKey(typing);
-  // A name that already exists in the library keeps its stored spelling; only
-  // a name the library has never seen is offered as a new one.
-  const known = Boolean(key) && options.some((name) => foldKey(name) === key);
-  const repeated = Boolean(key) && names.some((name) => foldKey(name) === key);
-  const canCreate = Boolean(key) && !known && !repeated;
-  const rows: { name: string; create: boolean }[] = rankArtists(options, typing, names)
-    .slice(0, canCreate ? 7 : 8)
-    .map((name) => ({ name, create: false }));
-  if (canCreate) rows.push({ name: typing.trim(), create: true });
-  const showing = open && rows.length > 0;
-
-  // What was typed can itself be a list (a pasted "A, B"), and a name already
-  // in the field is never added twice - "artist1" and "Artist1" count as one.
-  function add(raw: string) {
-    const next = [...names];
-    for (const part of split(raw)) {
-      const name = canonicalArtist(options, part);
-      if (!next.some((taken) => foldKey(taken) === foldKey(name))) next.push(name);
-    }
-    setTyping("");
-    setOpen(false);
-    setActive(-1);
-    if (next.length !== names.length) onChange(next.join(join));
-  }
-
-  function remove(name: string) {
-    onChange(names.filter((taken) => taken !== name).join(join));
-  }
-
-  return (
-    <div className="relative">
-      <div
-        className="field flex flex-wrap items-center gap-1.5"
-        style={{ paddingTop: 8, paddingBottom: 6 }}
-        onClick={() => inputRef.current?.focus()}
-      >
-        {names.map((name) => (
-          <span key={name} className="tag relative" style={{ fontSize: 12, padding: "3px 14px 3px 9px" }}>
-            {name}
-            <button
-              type="button"
-              className="absolute flex h-[14px] w-[14px] items-center justify-center rounded-full leading-none"
-              style={{
-                top: -5,
-                right: -5,
-                background: "var(--surface)",
-                border: "1px solid var(--line-strong)",
-                color: "var(--ink-2)",
-              }}
-              aria-label={`Remove ${name}`}
-              title={`Remove ${name}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                remove(name);
-              }}
-            >
-              <CloseIcon size={9} />
-            </button>
-          </span>
-        ))}
-        <input
-          ref={inputRef}
-          className="min-w-[80px] flex-1 bg-transparent text-[13.5px] outline-none"
-          style={{ color: "var(--ink)" }}
-          value={typing}
-          onChange={(e) => {
-            setTyping(e.target.value);
-            setOpen(true);
-            setActive(-1);
-          }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => {
-            setOpen(false);
-            setActive(-1);
-            // Leaving the field keeps what was typed rather than discarding it.
-            if (typing.trim()) add(canonicalArtist(options, typing));
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown" && rows.length) {
-              event.preventDefault();
-              setOpen(true);
-              setActive((current) => (current + 1) % rows.length);
-            } else if (event.key === "ArrowUp" && rows.length) {
-              event.preventDefault();
-              setOpen(true);
-              setActive((current) => (current <= 0 ? rows.length - 1 : current - 1));
-            } else if (event.key === "Enter") {
-              event.preventDefault();
-              if (showing && active >= 0 && rows[active]) add(rows[active].name);
-              else if (typing.trim()) add(canonicalArtist(options, typing));
-            } else if (event.key === "Backspace" && !typing && names.length) {
-              // An empty box makes Backspace take the last chip back.
-              remove(names[names.length - 1]);
-            } else if (event.key === "Escape") {
-              setOpen(false);
-              setActive(-1);
-            }
-          }}
-          placeholder={names.length ? placeholder : emptyPlaceholder}
-          role="combobox"
-          aria-expanded={showing}
-          aria-controls={listId}
-          aria-autocomplete="list"
-          aria-label={label}
-          aria-activedescendant={active >= 0 ? `${listId}-option-${active}` : undefined}
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </div>
-      {showing && (
-        <ul
-          id={listId}
-          role="listbox"
-          className="absolute z-20 mt-1 w-full overflow-hidden rounded-[9px] py-1"
-          style={{
-            background: "var(--surface)",
-            border: "1px solid var(--line)",
-            boxShadow: "0 8px 24px rgb(0 0 0 / 16%)",
-          }}
-        >
-          {rows.map((row, index) => (
-            <li
-              key={row.create ? `create:${row.name}` : row.name}
-              id={`${listId}-option-${index}`}
-              role="option"
-              aria-selected={index === active}
-              className="cursor-pointer truncate px-3 py-1.5 text-[12.5px]"
-              style={{ background: index === active ? "var(--surface-3)" : "transparent" }}
-              onMouseEnter={() => setActive(index)}
-              onMouseDown={(event) => {
-                // Keep the input focused so its blur does not close the list first.
-                event.preventDefault();
-                add(row.name);
-              }}
-            >
-              {row.create ? (
-                <span style={{ color: "var(--ink-2)" }}>{createText(row.name)}</span>
-              ) : (
-                row.name
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function ArtistField(props: {
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-}) {
-  return (
-    <TokenField
-      {...props}
-      split={splitArtists}
-      join=", "
-      listId="artist-suggestions"
-      label="Artists"
-      placeholder="Add another…"
-      emptyPlaceholder="Artist, then Enter"
-      createText={(name) => `Use “${name}” as a new artist`}
-    />
-  );
-}
-
-function GenreField(props: {
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-}) {
-  return (
-    <TokenField
-      {...props}
-      split={splitGenres}
-      join="; "
-      listId="genre-suggestions"
-      label="Genres"
-      placeholder="Add another…"
-      emptyPlaceholder="Genre, then Enter"
-      createText={(name) => `Add “${name}” as a new genre`}
-    />
   );
 }
 

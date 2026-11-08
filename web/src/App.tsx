@@ -168,12 +168,23 @@ export default function App() {
   const [cookiesOpen, setCookiesOpen] = useState(false);
   const authLink = useRef<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // A discarded draft is held for a few seconds so the click can be undone.
+  const [undoable, setUndoable] = useState(false);
 
   const [notifyOn, setNotifyOn] = useState(
     () => localStorage.getItem(NOTIFY_KEY) === "1" && "Notification" in window && Notification.permission === "granted",
   );
 
   const planSeq = useRef(0);
+  const inspectSeq = useRef(0);
+  // What discard put aside, and the link it advanced to so undo can requeue it.
+  const discarded = useRef<{
+    draft: Draft;
+    preview: Preview | null;
+    url: string;
+    next: string | null;
+  } | null>(null);
+  const undoTimer = useRef<number | null>(null);
   const lastIndex = useRef<number | null>(null);
   const hydrated = useRef(false);
   const composerInput = useRef<HTMLInputElement>(null);
@@ -490,6 +501,15 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  // Nothing else clears the undo window, so a page left open does not keep a
+  // discarded draft in memory forever.
+  useEffect(
+    () => () => {
+      if (undoTimer.current) window.clearTimeout(undoTimer.current);
+    },
+    [],
+  );
+
   // A long download usually finishes while the tab is in the background.
   const lastStates = useRef(new Map<string, Job["state"]>());
   useEffect(() => {
@@ -568,6 +588,9 @@ export default function App() {
   }, [planKey, role]);
 
   const inspectOne = useCallback(async (value: string) => {
+    // A late answer from a link that has since been taken back must not land
+    // on the restored draft.
+    const seq = ++inspectSeq.current;
     setInspecting(true);
     setError(null);
     setCookiesHint(false);
@@ -575,11 +598,13 @@ export default function App() {
     setPlanError(null);
     try {
       const result = await api.inspect(value);
+      if (inspectSeq.current !== seq) return;
       setPreview(result);
       setDraft(draftFrom(result));
       setPlan(null);
       setUrl(value);
     } catch (err) {
+      if (inspectSeq.current !== seq) return;
       setPreview(null);
       setDraft(null);
       setError(err instanceof Error ? err.message : "Could not read that link.");
@@ -587,7 +612,7 @@ export default function App() {
       setCookiesHint(needs);
       authLink.current = needs ? value : null;
     } finally {
-      setInspecting(false);
+      if (inspectSeq.current === seq) setInspecting(false);
     }
   }, []);
 
@@ -720,6 +745,45 @@ export default function App() {
     },
     [draft, activeJobs, clearDraft, advancePending],
   );
+
+  // Discard is the one destructive click in the review flow, so the draft is
+  // kept for a moment and the notice offers to put it back.
+  const discardDraft = useCallback(() => {
+    if (!draft) return;
+    discarded.current = { draft, preview, url, next: pendingRef.current[0] ?? null };
+    setUndoable(true);
+    if (undoTimer.current) window.clearTimeout(undoTimer.current);
+    undoTimer.current = window.setTimeout(() => setUndoable(false), 10_000);
+    clearDraft();
+    advancePending();
+  }, [draft, preview, url, clearDraft, advancePending]);
+
+  const undoDiscard = useCallback(() => {
+    const saved = discarded.current;
+    if (!saved) return;
+    discarded.current = null;
+    setUndoable(false);
+    if (undoTimer.current) window.clearTimeout(undoTimer.current);
+    // The link that followed was only inspected to fill the gap: drop that
+    // answer and put it back in line for its own review.
+    inspectSeq.current += 1;
+    setInspecting(false);
+    setPending((current) => {
+      const seen = new Set(current);
+      const restore: string[] = [];
+      for (const link of [saved.next, draft?.url]) {
+        if (link && !seen.has(link)) {
+          seen.add(link);
+          restore.push(link);
+        }
+      }
+      return [...restore, ...current];
+    });
+    setDraft(saved.draft);
+    setPreview(saved.preview);
+    setUrl(saved.url);
+    setError(null);
+  }, [draft]);
 
   const queue = useCallback(() => {
     if (!draft) return;
@@ -1031,13 +1095,11 @@ export default function App() {
               allowOpus={role === "owner"}
               artists={artists}
               genres={preview?.genres ?? []}
+              defaults={preview?.defaults ?? null}
               queuing={queuing}
               activeJobs={activeJobs}
               onQueue={queue}
-              onDiscard={() => {
-                clearDraft();
-                advancePending();
-              }}
+              onDiscard={discardDraft}
               onReinspect={() => void inspectOne(draft.url)}
             />
             {error && (
@@ -1059,6 +1121,15 @@ export default function App() {
               </p>
             )}
           </>
+        )}
+
+        {undoable && (
+          <div className="flex flex-wrap items-center gap-2 text-[13px]" role="status">
+            <span style={{ color: "var(--ink-2)" }}>Draft discarded.</span>
+            <button type="button" className="btn btn-ghost px-2 text-[12px]" onClick={undoDiscard}>
+              Undo
+            </button>
+          </div>
         )}
 
         {notice && (
