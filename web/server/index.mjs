@@ -3440,6 +3440,13 @@ app.post("/api/covers", express.raw({ type: () => true, limit: COVER_MAX_BYTES }
   res.status(201).json({ url: `/api/covers/${name}` });
 });
 
+// The genre vocabulary is plain data shipped with the server, not the library:
+// both roles get the same suggestions, and the review card and tag editor ask
+// for it the same way.
+app.get("/api/genres", (req, res) => {
+  res.json({ genres: GENRE_NAMES });
+});
+
 app.post("/api/inspect", async (req, res) => {
   const url = validateUrl(req.body?.url);
   if (!url) {

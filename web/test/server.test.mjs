@@ -1007,6 +1007,22 @@ test("jobs keep a remote thumbnail and the artist list is owner-only", async () 
   assert.deepEqual(guestArtists.artists, []);
 });
 
+test("the genre vocabulary is served to the owner and to guests", async () => {
+  const owner = cookieOf(
+    await call("/api/login", {
+      method: "POST",
+      body: { username: "owner", password: "testpassword" },
+    }),
+  );
+  const ownerGenres = await json(await call("/api/genres", { cookie: owner }));
+  assert.ok(Array.isArray(ownerGenres.genres) && ownerGenres.genres.length > 0, JSON.stringify(ownerGenres));
+  assert.ok(ownerGenres.genres.includes("Hardtekk"), JSON.stringify(ownerGenres.genres));
+
+  const guest = cookieOf(await call("/api/guest", { method: "POST" }));
+  const guestGenres = await json(await call("/api/genres", { cookie: guest }));
+  assert.deepEqual(guestGenres.genres, ownerGenres.genres);
+});
+
 test("guest quota counts jobs per browser", async () => {
   const login = await call("/api/login", {
     method: "POST",

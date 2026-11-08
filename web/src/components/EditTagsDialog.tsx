@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { api } from "../api";
 import type { Job } from "../types";
 import { CloseIcon, PencilIcon } from "./Icons";
+import { GenreField } from "./TokenField";
 
 // Fixing tags after the fact: the files are already on disk, so this rewrites
 // their metadata in place (no re-download, no re-encode) and leaves them in the
@@ -21,11 +23,28 @@ export function EditTagsDialog({
   const [artist, setArtist] = useState(job.artist);
   const [album, setAlbum] = useState(job.album);
   const [genre, setGenre] = useState(job.genre ?? "");
+  const [genres, setGenres] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
 
   const single = job.total === 1;
+
+  // The genre vocabulary is the shipped file, fetched the first time the
+  // dialog opens; free text still works if the request fails.
+  useEffect(() => {
+    if (!open || genres.length) return;
+    let alive = true;
+    api
+      .genres()
+      .then((res) => {
+        if (alive) setGenres(res.genres);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [open, genres.length]);
 
   // Start from what the job has now each time it opens, not from a stale draft.
   useEffect(() => {
@@ -123,17 +142,18 @@ export function EditTagsDialog({
                 disabled={busy}
               />
             </label>
-            <label className="block">
+            <div>
               <span className="chip">Genre</span>
-              <input
-                className="field mt-1.5"
-                value={genre}
-                onChange={(e) => setGenre(e.target.value)}
-                disabled={busy}
-                placeholder="Leave empty for no genre tag"
-                spellCheck={false}
-              />
-            </label>
+              <div className="mt-1.5">
+                <GenreField
+                  value={genre}
+                  options={genres}
+                  onChange={setGenre}
+                  emptyPlaceholder="Leave empty for no genre tag"
+                  disabled={busy}
+                />
+              </div>
+            </div>
             {!single && (
               <p className="text-[11.5px]" style={{ color: "var(--ink-3)" }}>
                 {job.tracks.filter((track) => track.state === "done").length} finished files get this artist,

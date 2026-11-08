@@ -182,6 +182,8 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   artists: () => request<{ artists: string[] }>("/api/artists"),
+  // The shipped genre vocabulary, for the tag editor as well as the review card.
+  genres: () => request<{ genres: string[] }>("/api/genres"),
   inspect: (url: string) =>
     request<Preview>("/api/inspect", { method: "POST", body: JSON.stringify({ url }) }),
   // Raw bytes rather than JSON: the image goes up as it is and the server
