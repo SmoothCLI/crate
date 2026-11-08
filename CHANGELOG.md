@@ -17,7 +17,13 @@ All notable changes to Crate are documented here. The format follows
 - The review card's **Genre** field works like the artist field: typing offers
   the shipped genre vocabulary with fuzzy matching (so "hardtekk" finds
   "Hardtekk"), Enter turns a value into a chip, and the × removes it. Several
-  genres are written as one semicolon-separated tag value.
+  genres are written as one semicolon-separated tag value. The tag editor uses
+  the same input, fed by the new `GET /api/genres`.
+- An edited **artist, album, genre or date** can be put back to what the link
+  itself offered, with a ↺ beside the field's label, and *Discard* offers
+  **Undo** for ten seconds.
+- `Ctrl`/`Cmd`+`Enter` queues the selected tracks, and *Saves to* names the
+  first file rather than only its folder.
 
 ### Changed
 

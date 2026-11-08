@@ -142,6 +142,11 @@ npx playwright install chromium   # once
 cd web && npm run test:layout
 ```
 
+The same two suites run on every push in `.github/workflows/check.yml`, offline:
+a stand-in `yt-dlp` copies a generated tone, so nothing is downloaded from the
+internet. `publish.yml` calls that workflow as its `test` job and the image job
+needs it, so a failing check cannot produce a release.
+
 A real browser at 390, 768 and 1440 px, against the built UI and a seeded
 server. It asserts that nothing scrolls sideways, that the header's title and
 controls do not overlap, and that no card or tab strip leaves the viewport on
@@ -666,10 +671,19 @@ findings and the duplicate scanner live.
   all. The genre is written in the same pass as the title and album, in every
   output format, so a queued download is never tagless; an artist the map does
   not know starts empty rather than guessing, and adding it to that file (then
-  rebuilding the image) is how a new act gets its default.
+  rebuilding the image) is how a new act gets its default. The genre box in
+  *Edit tags* is the same input with the same vocabulary, served by
+  `GET /api/genres`.
 - **Keyboard** - `Ctrl`/`Cmd`+`K` (or `/` outside a field) jumps to the link box;
-  in the queue `j`/`k` move the highlight, `Enter` opens the highlighted job and
-  `Esc` clears it. Dialogs close with `Esc` on their own.
+  in the review card `Ctrl`/`Cmd`+`Enter` queues what is selected, and in the
+  queue `j`/`k` move the highlight, `Enter` opens the highlighted job and `Esc`
+  clears it. Dialogs close with `Esc` on their own.
+- **Take an edit back** - a field that differs from what the link offered (artist,
+  album, genre, date) carries a ↺ beside its label that restores the source
+  value; a row's date moves with the card when the date is reset. *Saves to*
+  shows the first file's full path, not just the folder. Discarding a draft
+  keeps it for ten seconds and offers **Undo**, which also puts the link that
+  was opened in its place back in the waiting list.
 - **Drafts survive reloads** - the review card is kept in `localStorage`, so a
   half-picked album comes back after a refresh or a locked phone.
 - **Save** - the owner gets the same ↓ transfer as guests, on top of the
