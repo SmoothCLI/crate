@@ -21,6 +21,14 @@ All notable changes to Crate are documented here. The format follows
   requested format instead of that shell. A server field entered as `host/rest`
   or with a trailing slash works too (`/rest/rest/…` and `//rest/…` are
   normalised), instead of failing every call.
+- **The rest of the read-only Subsonic surface a player browses with** is
+  implemented: folder browsing (`getMusicDirectory`), `getRandomSongs`,
+  `getSongsByGenre`, `getArtistInfo2`, `getAlbumInfo2`, `getTopSongs`,
+  `getInternetRadioStations`, `getPodcasts`, `getNewestPodcasts`, `getLyrics`,
+  `getLyricsBySongId`, `getStarred`, `getNowPlaying` and `getBookmarks`.
+  Collections the library cannot fill answer empty; `startScan`, `star`,
+  `unstar`, `savePlayQueue` and `scrobble` are accepted and forgotten, so a
+  player never shows "endpoint not implemented" for a page it opens.
 - `Subsonic API` in `/admin`: an on/off switch, the server URL, a generated
   **API key** (`apiKey=`) and a separate **Subsonic password**, each regenerable
   from the page. Switching the API off answers error 50 to every client.

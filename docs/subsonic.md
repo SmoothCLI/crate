@@ -77,9 +77,16 @@ HTTPS** for anything beyond a trusted LAN. See
 | `download` | the same bytes, as an attachment |
 | `getCoverArt` | the album cover, folder image or art embedded in the file |
 | `getScanStatus` | `scanning=false` and the track count |
-| `getStarred2`, `getPlaylists` | empty collections, honestly |
-| `getGenres` | empty list (the folder walk does not read genre tags) |
+| `getStarred2`, `getStarred`, `getPlaylists` | empty collections, honestly |
+| `getGenres`, `getSongsByGenre` | empty lists (the folder walk does not read genre tags) |
 | `getPlayQueue` | an empty saved queue |
+| `getMusicDirectory` | an artist's albums, or an album's songs |
+| `getRandomSongs` | a random sample of the library |
+| `getArtistInfo2`, `getAlbumInfo2`, `getTopSongs` | empty (there is no external metadata store) |
+| `getInternetRadioStations`, `getPodcasts`, `getNewestPodcasts` | empty lists |
+| `getLyrics`, `getLyricsBySongId` | empty lyrics |
+| `getNowPlaying`, `getBookmarks` | empty |
+| `startScan`, `star`, `unstar`, `savePlayQueue`, `scrobble` | accepted and forgotten (read-only server) |
 | `scrobble` | accepted and forgotten |
 | `getLicense` | valid |
 

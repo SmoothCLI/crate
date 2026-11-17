@@ -392,9 +392,37 @@ export function mountSubsonic(app, deps) {
       },
     }),
 
-    // Clients call this as playback starts. Accepting without storing keeps a
-    // player quiet; it is not a claim that scrobbling exists.
+    // Read-only, but the client still calls the write-shaped endpoints. A star,
+    // a saved queue or a scan request is accepted and forgotten rather than
+    // answered with an error that would surface in the player's UI.
     scrobble: () => ({}),
+    star: () => ({}),
+    unstar: () => ({}),
+    savePlayQueue: () => ({}),
+    startScan: () => ({}),
+
+    // The rest of the pages Refix offers. Empty collections are the honest
+    // answer: this server has no stars, playlists, radio, podcasts or lyrics,
+    // and the folder walk carries no genre tags to group songs by.
+    getSongsByGenre: () => ({ songsByGenre: { song: [] } }),
+    getArtistInfo2: () => ({ artistInfo2: {} }),
+    getAlbumInfo2: () => ({ albumInfo2: {} }),
+    getTopSongs: () => ({ topSongs: { song: [] } }),
+    getInternetRadioStations: () => ({ internetRadioStations: { internetRadioStation: [] } }),
+    getPodcasts: () => ({ podcasts: { channel: [] } }),
+    getNewestPodcasts: () => ({ newestPodcasts: { episode: [] } }),
+    getLyrics: () => ({ lyrics: {} }),
+    getLyricsBySongId: () => ({ lyricsList: { structuredLyrics: [] } }),
+    getStarred: () => ({ starred: {} }),
+    getNowPlaying: () => ({ nowPlaying: { entry: [] } }),
+    getBookmarks: () => ({ bookmarks: { bookmark: [] } }),
+
+    getRandomSongs: async (req) => {
+      const { root, items } = library();
+      const size = Math.min(500, Math.max(1, Number(req.query.size) || 10));
+      const shuffled = [...items].sort(() => Math.random() - 0.5).slice(0, size);
+      return { randomSongs: { song: await Promise.all(shuffled.map((item) => songOf(item, root))) } };
+    },
 
     getIndexes: () => {
       const { artists } = library();
@@ -459,6 +487,45 @@ export function mountSubsonic(app, deps) {
       const found = findSong(req.query.id);
       if (!found) return { miss: true };
       return { song: await songOf(found.item, found.root) };
+    },
+
+    // The Files page navigates the same two levels the library walk knows: an
+    // artist id lists its albums, an album id lists its songs. An id from
+    // another tree cannot name a folder here, so it is simply not found.
+    getMusicDirectory: async (req) => {
+      const id = String(req.query.id ?? "");
+      const { root, artists } = library();
+      const artistName = fromId("a", id);
+      if (artistName) {
+        const artist = artists.find((entry) => entry.name === artistName);
+        if (!artist) return { miss: true };
+        return {
+          directory: {
+            id,
+            name: artist.name,
+            child: artist.list.map((album) => ({
+              id: albumId(album.dir),
+              parent: id,
+              title: album.name,
+              name: album.name,
+              album: album.name,
+              artist: artist.name,
+              isDir: true,
+            })),
+          },
+        };
+      }
+      const dir = fromId("d", id);
+      const found = dir ? findAlbum(dir) : null;
+      if (!found) return { miss: true };
+      return {
+        directory: {
+          id,
+          name: found.album.name,
+          parent: artistId(found.album.artist),
+          child: await Promise.all(found.album.songs.map((item) => songOf(item, root))),
+        },
+      };
     },
 
     getAlbumList2: async (req) => {

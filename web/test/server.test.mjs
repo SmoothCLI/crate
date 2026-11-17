@@ -2348,6 +2348,46 @@ test("the Subsonic API browses and streams the library read-only", async () => {
   }
 });
 
+// Every page Refix offers calls at least one endpoint; a missing one surfaces
+// as "That Subsonic endpoint is not implemented" in the player's UI.
+test("the Subsonic API answers the browsing endpoints a player calls", async () => {
+  const asJson = async (name, params = {}) => {
+    const query = new URLSearchParams({
+      u: "owner",
+      p: "testpassword",
+      v: "1.16.1",
+      c: "test",
+      f: "json",
+      ...params,
+    });
+    return (await (await fetch(`${BASE}/rest/${name}?${query}`)).json())["subsonic-response"];
+  };
+
+  // Folder browsing: an artist id lists albums, an album id lists songs.
+  const artists = await asJson("getArtists");
+  const lib = artists.artists.index.flatMap((bucket) => bucket.artist).find((a) => a.name === "Lib Artist");
+  assert.ok(lib, "the seeded artist is listed");
+  const folder = await asJson("getMusicDirectory", { id: lib.id });
+  assert.equal(folder.directory.child[0].title, "Lib Album");
+  assert.equal(folder.directory.child[0].isDir, true);
+  const albumFolder = await asJson("getMusicDirectory", { id: folder.directory.child[0].id });
+  assert.equal(albumFolder.directory.child[0].title, "Known Song");
+  assert.equal(albumFolder.directory.child[0].isDir, false);
+
+  assert.deepEqual((await asJson("getSongsByGenre", { genre: "Rock" })).songsByGenre.song, []);
+  assert.ok((await asJson("getRandomSongs", { size: 5 })).randomSongs.song.length >= 1);
+  assert.deepEqual((await asJson("getArtistInfo2", { id: lib.id })).artistInfo2, {});
+  assert.deepEqual((await asJson("getAlbumInfo2", { id: folder.directory.child[0].id })).albumInfo2, {});
+  assert.deepEqual((await asJson("getTopSongs", { artist: "Lib Artist" })).topSongs.song, []);
+  assert.deepEqual((await asJson("getInternetRadioStations")).internetRadioStations.internetRadioStation, []);
+  assert.deepEqual((await asJson("getPodcasts")).podcasts.channel, []);
+
+  // Write-shaped calls are accepted and forgotten, not errors in the UI.
+  for (const name of ["startScan", "savePlayQueue", "star", "unstar"]) {
+    assert.equal((await asJson(name)).status, "ok", name);
+  }
+});
+
 // Browser-based players (Airsonic Refix, Feishin web) run on another origin: a
 // missing CORS header turns every login into "NetworkError when attempting to
 // fetch resource", even when the password is right.
