@@ -2404,6 +2404,16 @@ test("the Subsonic API answers browser clients from another origin", async () =>
   assert.equal(genreBody.status, "ok");
   assert.deepEqual(genreBody.genres.genre, []);
 
+  // A server URL pasted as "…/rest" or with a trailing slash must still work;
+  // those are the two shapes a player builds when the field is not the root.
+  for (const base of [`${BASE}/rest/rest`, `${BASE}//rest`]) {
+    const answer = await fetch(`${base}/ping?u=owner&p=testpassword&v=1.16.1&c=test&f=json`, {
+      headers: { origin },
+    });
+    assert.equal(answer.headers.get("access-control-allow-origin"), "*", base);
+    assert.equal((await answer.json())["subsonic-response"].status, "ok", base);
+  }
+
   // An endpoint Crate does not implement must still answer in the protocol;
   // the app shell used to return HTML with status 200 and break JSON clients.
   const unknown = await fetch(

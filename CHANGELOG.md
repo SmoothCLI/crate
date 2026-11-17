@@ -18,7 +18,9 @@ All notable changes to Crate are documented here. The format follows
   queue and `getGenres` an empty list (the folder walk never reads genre tags). Airsonic Refix asks for all three straight after login and used to
   receive the web UI's HTML shell, which it reported as `Unexpected token '<'`.
   Any other unimplemented `/rest` path now answers with Subsonic error 70 in the
-  requested format instead of that shell.
+  requested format instead of that shell. A server field entered as `host/rest`
+  or with a trailing slash works too (`/rest/rest/…` and `//rest/…` are
+  normalised), instead of failing every call.
 - `Subsonic API` in `/admin`: an on/off switch, the server URL, a generated
   **API key** (`apiKey=`) and a separate **Subsonic password**, each regenerable
   from the page. Switching the API off answers error 50 to every client.

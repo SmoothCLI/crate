@@ -587,6 +587,16 @@ export function mountSubsonic(app, deps) {
   // a wildcard origin hands a page nothing it could not do with the URL it was
   // already given. The header is set before the routes so a rejected password
   // also reaches the client as Subsonic error 40 instead of a network error.
+  // Players often paste the API base into the server field, so the client
+  // asks for `/rest/rest/ping`; a server typed with a trailing slash produces
+  // `//rest/ping`. Both name this API, so normalise them before routing (and
+  // before the CORS middleware, which only matches `/rest`).
+  app.use((req, res, next) => {
+    if (req.url.startsWith("//rest/")) req.url = req.url.slice(1);
+    if (req.url.startsWith("/rest/rest/")) req.url = "/rest/" + req.url.slice("/rest/rest/".length);
+    next();
+  });
+
   app.use("/rest", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");

@@ -18,13 +18,17 @@ start and can be regenerated there; regenerating one signs out whatever used it.
 
 | Field | Value |
 |---|---|
-| Server | `http://your-host:8099` (or the URL behind your reverse proxy) |
+| Server | `http://your-host:8099` (or the URL behind your reverse proxy), with no `/rest` suffix |
 | Username | the owner username from `/setup`, `admin` unless you changed it |
 | Password | the **Subsonic password** from `/admin` |
 | Path prefix | leave empty — the endpoints are at `/rest` directly |
 
 Some players ask for an API key instead: paste it where the password goes, or
 send it as `apiKey=`. A key needs no username and cannot sign in to the web UI.
+
+The server field takes the instance root. If a client is given `…/rest` or a
+URL with a trailing slash anyway, `/rest/rest/…` and `//rest/…` are normalised
+rather than answered with an error.
 
 Browser-based players work too. `/rest` answers CORS preflights and sends
 `Access-Control-Allow-Origin: *`, so a page served from another origin (Airsonic
