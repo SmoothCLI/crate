@@ -26,6 +26,11 @@ start and can be regenerated there; regenerating one signs out whatever used it.
 Some players ask for an API key instead: paste it where the password goes, or
 send it as `apiKey=`. A key needs no username and cannot sign in to the web UI.
 
+Browser-based players work too. `/rest` answers CORS preflights and sends
+`Access-Control-Allow-Origin: *`, so a page served from another origin (Airsonic
+Refix, Feishin's web build) can call the API. That wildcard is safe here because
+credentials travel in the query string and the API never reads or sets a cookie.
+
 ## Authentication
 
 - **API key** — `apiKey=<key>`, the simplest option and the one that keeps a
@@ -55,7 +60,8 @@ HTTPS** for anything beyond a trusted LAN. See
 
 | Endpoint | What it answers |
 |---|---|
-| `ping` | status and protocol version |
+| `ping` | status, protocol version and `openSubsonic=true` |
+| `getOpenSubsonicExtensions` | an empty extension list (probed by modern players) |
 | `getMusicFolders` | one folder, named after the instance |
 | `getIndexes`, `getArtists` | artists grouped into alphabetical buckets |
 | `getArtist` | one artist with its albums |
@@ -68,6 +74,8 @@ HTTPS** for anything beyond a trusted LAN. See
 | `getCoverArt` | the album cover, folder image or art embedded in the file |
 | `getScanStatus` | `scanning=false` and the track count |
 | `getStarred2`, `getPlaylists` | empty collections, honestly |
+| `getGenres` | empty list (the folder walk does not read genre tags) |
+| `getPlayQueue` | an empty saved queue |
 | `scrobble` | accepted and forgotten |
 | `getLicense` | valid |
 
@@ -76,7 +84,9 @@ are XML unless the request says `f=json`.
 
 Not implemented, because there is nothing behind them on a read-only server:
 transcoding (`format` is ignored, the original file is sent), playlists, stars,
-ratings, sharing, lyrics, chat and user management.
+ratings, sharing, lyrics, chat and user management. Those paths still answer
+with a Subsonic error (`70`) in the requested format rather than the web UI's
+HTML shell, so a client parses the refusal instead of reporting broken JSON.
 
 ## Trying it
 

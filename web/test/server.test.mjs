@@ -2348,6 +2348,80 @@ test("the Subsonic API browses and streams the library read-only", async () => {
   }
 });
 
+// Browser-based players (Airsonic Refix, Feishin web) run on another origin: a
+// missing CORS header turns every login into "NetworkError when attempting to
+// fetch resource", even when the password is right.
+test("the Subsonic API answers browser clients from another origin", async () => {
+  const origin = "https://player.example";
+  const preflight = await fetch(`${BASE}/rest/ping.view?u=owner&p=testpassword&v=1.16.1&c=test`, {
+    method: "OPTIONS",
+    headers: {
+      origin,
+      "access-control-request-method": "GET",
+      "access-control-request-headers": "content-type",
+    },
+  });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get("access-control-allow-origin"), "*");
+  assert.match(preflight.headers.get("access-control-allow-methods") || "", /GET/);
+  assert.match(preflight.headers.get("access-control-allow-headers") || "", /content-type/i);
+
+  const ping = await fetch(`${BASE}/rest/ping.view?u=owner&p=testpassword&v=1.16.1&c=test&f=json`, {
+    headers: { origin },
+  });
+  assert.equal(ping.headers.get("access-control-allow-origin"), "*");
+  const pingBody = (await ping.json())["subsonic-response"];
+  assert.equal(pingBody.status, "ok");
+  assert.equal(pingBody.openSubsonic, true, "a client probes this before signing in");
+  assert.equal(pingBody.type, "crate");
+  // "dev" when the test's stub downloader has no VERSION line.
+  assert.match(pingBody.serverVersion, /^(dev|\d+\.\d+\.\d+)/);
+
+  // Airsonic Refix asks for the extension list next and dies on an HTML 404.
+  const extensions = await fetch(
+    `${BASE}/rest/getOpenSubsonicExtensions?u=owner&p=testpassword&v=1.16.1&c=test&f=json`,
+    { headers: { origin } },
+  );
+  assert.equal(extensions.headers.get("access-control-allow-origin"), "*");
+  const extensionBody = (await extensions.json())["subsonic-response"];
+  assert.equal(extensionBody.status, "ok");
+  assert.deepEqual(extensionBody.openSubsonicExtensions, []);
+
+  const queue = await fetch(
+    `${BASE}/rest/getPlayQueue?u=owner&p=testpassword&v=1.16.1&c=test&f=json`,
+    { headers: { origin } },
+  );
+  assert.equal(queue.headers.get("access-control-allow-origin"), "*");
+  const queueBody = (await queue.json())["subsonic-response"];
+  assert.equal(queueBody.status, "ok");
+  assert.deepEqual(queueBody.playQueue.entry, []);
+
+  const genres = await fetch(
+    `${BASE}/rest/getGenres?u=owner&p=testpassword&v=1.16.1&c=test&f=json`,
+    { headers: { origin } },
+  );
+  const genreBody = (await genres.json())["subsonic-response"];
+  assert.equal(genreBody.status, "ok");
+  assert.deepEqual(genreBody.genres.genre, []);
+
+  // An endpoint Crate does not implement must still answer in the protocol;
+  // the app shell used to return HTML with status 200 and break JSON clients.
+  const unknown = await fetch(
+    `${BASE}/rest/getNothingHere?u=owner&p=testpassword&v=1.16.1&c=test&f=json`,
+    { headers: { origin } },
+  );
+  assert.match(unknown.headers.get("content-type") || "", /application\/json/);
+  assert.equal((await unknown.json())["subsonic-response"].error.code, 70);
+
+  // A rejected credential still carries the header, so the player can show
+  // Subsonic's own error instead of blaming the network.
+  const denied = await fetch(`${BASE}/rest/ping.view?u=owner&p=wrong&v=1.16.1&c=test&f=json`, {
+    headers: { origin },
+  });
+  assert.equal(denied.headers.get("access-control-allow-origin"), "*");
+  assert.equal((await denied.json())["subsonic-response"].error.code, 40);
+});
+
 // The switch and the two credentials are the owner's alone, and rotating either
 // one locks out whatever was still using the old value.
 test("the Subsonic API can be switched off and uses its own credentials", async () => {

@@ -111,8 +111,12 @@ Password  the Subsonic password from /admin
 
 `ping`, `getMusicFolders`, `getIndexes`, `getArtists`, `getArtist`, `getAlbum`,
 `getSong`, `getAlbumList2`, `search3`, `stream`, `download`, `getCoverArt`,
-`getScanStatus` and `getLicense` are implemented; playlists and stars answer
-empty and scrobbles are accepted and forgotten. Token authentication (`t`/`s`)
+`getScanStatus`, `getLicense`, `getPlayQueue`, `getGenres` and
+`getOpenSubsonicExtensions` are implemented (`ping` advertises
+`openSubsonic=true`, the extension list, saved queue and genre list are empty);
+playlists and stars answer empty and scrobbles are accepted and forgotten.
+`/rest` also sends CORS headers, so a browser-based player on another origin
+(Airsonic Refix, Feishin web) can sign in. Token authentication (`t`/`s`)
 works against the Subsonic password, which is the one credential the server
 stores; the web password stays a scrypt hash and is accepted by `u`/`p` only.
 Track durations are measured with `ffprobe` and cached in `data/durations.json`.

@@ -354,7 +354,13 @@ export function mountSubsonic(app, deps) {
   // ------------------------------------------------------------- end points
 
   const routes = {
-    ping: () => ({}),
+    // OpenSubsonic is the de-facto extension modern players probe before they
+    // trust a server. Nothing here needs an extension yet, but answering the
+    // probe honestly keeps a client from parsing Express's HTML 404 as JSON
+    // (Airsonic Refix refuses to sign in when that happens).
+    ping: () => ({ openSubsonic: true, type: "crate", serverVersion: deps.version() }),
+
+    getOpenSubsonicExtensions: () => ({ openSubsonicExtensions: [] }),
 
     getLicense: () => ({ license: { valid: true } }),
 
@@ -368,6 +374,23 @@ export function mountSubsonic(app, deps) {
     // with an empty collection rather than an error a client would log.
     getStarred2: () => ({ starred2: {} }),
     getPlaylists: () => ({ playlists: {} }),
+    // The folder walk names artists and albums, not genres (those live inside
+    // the tags), so there is no honest list to return. Answering empty keeps
+    // the Discover page loading instead of failing on a 404.
+    getGenres: () => ({ genres: { genre: [] } }),
+    // The saved queue is client state; a read-only server has none. Answering
+    // with an empty queue is what lets a player finish signing in (Refix asks
+    // for it straight after the extension probe).
+    getPlayQueue: () => ({
+      playQueue: {
+        current: "",
+        position: 0,
+        username: deps.username() || "",
+        changed: new Date(0).toISOString(),
+        changedBy: "",
+        entry: [],
+      },
+    }),
 
     // Clients call this as playback starts. Accepting without storing keeps a
     // player quiet; it is not a claim that scrobbling exists.
@@ -558,6 +581,25 @@ export function mountSubsonic(app, deps) {
 
   // --------------------------------------------------------------- routing
   //
+  // Browser-based players (Airsonic Refix, Feishin's web build) run on their
+  // own origin and cannot read a response without CORS. Subsonic credentials
+  // travel in the query string and this API neither sets nor reads a cookie, so
+  // a wildcard origin hands a page nothing it could not do with the URL it was
+  // already given. The header is set before the routes so a rejected password
+  // also reaches the client as Subsonic error 40 instead of a network error.
+  app.use("/rest", (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", req.get("access-control-request-headers") || "Content-Type");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges");
+    res.setHeader("Access-Control-Max-Age", "86400");
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
   // Both spellings are part of the protocol: `/rest/ping` is the modern form and
   // `/rest/ping.view` is what older clients still build.
 
@@ -585,4 +627,12 @@ export function mountSubsonic(app, deps) {
       }
     });
   }
+
+  // Anything else under /rest has to answer in the protocol too. Falling
+  // through to the app shell returned index.html with status 200, which clients
+  // report as `Unexpected token '<'` (Airsonic Refix does exactly that for the
+  // endpoints it probes after login).
+  app.use("/rest", (req, res) => {
+    fail(req, res, 70, "That Subsonic endpoint is not implemented.");
+  });
 }

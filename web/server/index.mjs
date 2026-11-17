@@ -4887,6 +4887,7 @@ mountSubsonic(app, {
   siteName: () => settings.siteName,
   musicDir: () => settings.musicDir,
   username: () => settings.username,
+  version: () => VERSION,
   passwordHash: () => passwordHash,
   verifyPassword,
   items: () => libraryBrowseIndex().items,
