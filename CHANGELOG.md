@@ -6,6 +6,8 @@ All notable changes to Crate are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-11-17
+
 ### Added
 
 - Browser-based Subsonic players (**Airsonic Refix**, Feishin's web build) can
@@ -293,7 +295,8 @@ that drives it.
   and the compose files. The downloader keeps its `dlAudio.sh` filename and the
   `AUDIODL_*` environment variables, which the server and the tests refer to.
 
-[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.5.0...HEAD
+[Unreleased]: https://github.com/SmoothCLI/crate/compare/v3.6.0...HEAD
+[3.6.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.6.0
 [3.5.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.5.0
 [3.4.1]: https://github.com/SmoothCLI/crate/releases/tag/v3.4.1
 [3.4.0]: https://github.com/SmoothCLI/crate/releases/tag/v3.4.0
